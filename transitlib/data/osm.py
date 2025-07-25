@@ -6,10 +6,6 @@ from transit_planner.config import Config
 
 cfg = Config()
 
-"""
-§ 3 Passive Datasets — OSM road network and POIs
-"""
-
 def load_osm_network(
     place_name: str,
     network_type: str = None
