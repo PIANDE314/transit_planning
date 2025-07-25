@@ -7,10 +7,6 @@ from transit_planner.config import Config
 
 cfg = Config()
 
-"""
-§ 3 Passive Datasets — Download helpers for WorldPop and HDX RWI
-"""
-
 def download_file(
     url: str,
     dest: Union[str, Path],
