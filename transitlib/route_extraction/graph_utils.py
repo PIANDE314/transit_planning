@@ -1,7 +1,7 @@
 import networkx as nx
 import osmnx as ox
 from typing import List, Tuple, Dict
-import geopandas as gpd6
+import geopandas as gpd
 
 def map_stops_to_nodes(G_latlon: nx.Graph, stops: gpd.GeoDataFrame) -> List[int]:
     """
