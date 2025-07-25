@@ -6,10 +6,6 @@ from shapely.geometry.base import BaseGeometry
 from pathlib import Path
 from typing import Union
 
-"""
-§ 3 Passive Datasets — Preprocessing: clip, reproject, mask
-"""
-
 def clip_raster_to_region(
     raster_path:   Union[str, Path],
     region_geom:   BaseGeometry,
