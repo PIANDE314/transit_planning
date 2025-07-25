@@ -1,83 +1,39 @@
 import random
 from typing import List, Tuple, Set, Dict
-import networkx as nx
 import numpy as np
+from transit_planner.config import Config
 
-"""
-§ 3.3 Transit Routes Extraction — optimize routes via hill‑climbing (Fig 4B)
-"""
+cfg = Config()
 
-# route‐length bounds
-MIN_STOPS = 4
-MAX_STOPS = 8
+MIN_STOPS = cfg.get("min_stops")
+MAX_STOPS = cfg.get("max_stops")
+WEIGHTS = cfg.get("weights")
 
-# weightings per paper
-WEIGHTS: Dict[str, float] = {
-    "usage":       0.4,
-    "feasibility": 0.2,
-    "coverage":    0.2,
-    "directness":  0.2
-}
-
-def score_usage(
-    route: List[int],
-    Q: Dict[Tuple[int,int], float],
-    F: Dict[Tuple[int,int], float]
-) -> float:
-    """
-    Usage = 0.5 * (mean Q + mean F) over edges in route.
-    """
+def score_usage(route, Q, F):
     edges = list(zip(route[:-1], route[1:]))
     q_vals = [Q.get(e, Q.get((e[1], e[0]), 0.0)) for e in edges]
     f_vals = [F.get(e, F.get((e[1], e[0]), 0.0)) for e in edges]
     return 0.5 * (np.mean(q_vals) + np.mean(f_vals)) if edges else 0.0
 
-def score_feasibility(
-    route: List[int]
-) -> float:
-    """
-    Feasibility = 1/(MAX_STOPS-MIN_STOPS+1) if len(route) within bounds, else 0.
-    """
+def score_feasibility(route):
     L = len(route)
-    return (1.0 / (MAX_STOPS - MIN_STOPS + 1)) if MIN_STOPS <= L <= MAX_STOPS else 0.0
+    return 1.0 / (MAX_STOPS - MIN_STOPS + 1) if MIN_STOPS <= L <= MAX_STOPS else 0.0
 
-def score_directness(
-    route: List[int],
-    mst_edges: Set[Tuple[int,int]]
-) -> float:
-    """
-    Directness = fraction of route‐edges that lie on the MST.
-    """
+def score_directness(route, mst_edges):
     edges = list(zip(route[:-1], route[1:]))
     hits = sum(1 for e in edges if e in mst_edges or (e[1], e[0]) in mst_edges)
-    return (hits / len(edges)) if edges else 0.0
+    return hits / len(edges) if edges else 0.0
 
-def score_coverage(
-    solution: List[List[int]],
-    total_nodes: int
-) -> float:
-    """
-    Coverage = unique stops covered / total stops.
-    """
+def score_coverage(solution, total_nodes):
     covered = {n for route in solution for n in route}
-    return len(covered) / total_nodes if total_nodes > 0 else 0.0
+    return len(covered) / total_nodes if total_nodes else 0.0
 
-def route_score(
-    route: List[int],
-    solution: List[List[int]],
-    Q: Dict[Tuple[int,int], float],
-    F: Dict[Tuple[int,int], float],
-    mst_edges: Set[Tuple[int,int]],
-    total_nodes: int
-) -> float:
-    """
-    Combined utility score of a single route within a solution set.
-    """
+def route_score(route, solution, Q, F, mst_edges, total_nodes):
     return (
-        WEIGHTS["usage"]       * score_usage(route, Q, F)
-      + WEIGHTS["feasibility"] * score_feasibility(route)
-      + WEIGHTS["coverage"]    * score_coverage(solution, total_nodes)
-      + WEIGHTS["directness"]  * score_directness(route, mst_edges)
+        WEIGHTS["usage"] * score_usage(route, Q, F) +
+        WEIGHTS["feasibility"] * score_feasibility(route) +
+        WEIGHTS["coverage"] * score_coverage(solution, total_nodes) +
+        WEIGHTS["directness"] * score_directness(route, mst_edges)
     )
 
 # Operators
@@ -114,16 +70,6 @@ def optimize_routes(
     """
     Hill‑climb each route by randomly applying insert/delete/swap operators
     and accepting improvements in route_score, for up to max_iters.
-
-    Args:
-        initial_routes: starting solution list.
-        Q, F: utilities from compute_utilities.
-        mst_edges: edges in MST for directness.
-        num_nodes: total number of stops (for coverage).
-        max_iters: maximum operator trials.
-
-    Returns:
-        Optimized list of routes.
     """
     solution = initial_routes.copy()
     for _ in range(max_iters):
