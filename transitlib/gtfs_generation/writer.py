@@ -4,7 +4,7 @@ from typing import Callable, Dict, List
 import networkx as nx
 import pandas as pd
 from pathlib import Path
-from transit_planner.config import Config
+from transitlib.config import Config
 
 cfg = Config()
 
