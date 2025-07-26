@@ -71,6 +71,7 @@ def expand_negatives_with_logreg(
     unlabeled = feature_matrix.index.difference(seeds_df.index)
     probs = model.predict_proba(feature_matrix.loc[unlabeled])[:, 0]  # P(label=0)
     high_conf_neg = feature_matrix.loc[unlabeled][probs >= logreg_neg_th]
+    high_conf_neg = high_conf_neg.copy()
     high_conf_neg["label"] = 0
 
     return pd.concat([seeds_df, high_conf_neg])
