@@ -30,7 +30,10 @@ DEFAULTS: Dict[str, Any] = {
     "avg_pings":         4.5,
     "transit_frac":      0.30,
     "sigma_deg":         0.0005,
-    "simulation_days":   61,      # number of days to simulate (default July + Nov = 61)
+    "simulation_periods": [
+        {"start": "2019-07-01", "end": "2019-07-31"},
+        {"start": "2019-11-01", "end": "2019-11-30"}
+    ],
 
     # === Viability (§ 3.1, Table 2) ===
     "buffer_viability":  500.0,   # m buffer for feature extraction
