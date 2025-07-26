@@ -24,7 +24,7 @@ DEFAULTS: Dict[str, Any] = {
     },
 
     # === Simulation (§ 3 “Passive Datasets”) ===
-    "n_users":           100,
+    "n_users":           1,
     "avg_pings":         4.5,
     "transit_frac":      0.30,
     "sigma_deg":         0.0005,
