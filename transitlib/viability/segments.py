@@ -62,17 +62,17 @@ def compute_segment_features(
       • finally MinMax scaling
     """
 
-    # 1) pop_density via rasterstats.zonal_stats
-    #    returns list of dicts: {'sum': …}
-    zs = zonal_stats(
-        vectors=segs["buffer"],
-        raster=worldpop_path,
-        stats=["sum"],
-        all_touched=False,
-        geojson_out=False
-    )
-    pops = np.array([z["sum"] or 0 for z in zs])
-    segs["pop_density"] = pops / segs["area_km2"]
+    # 1) Population density (do one buffer at a time to keep memory low)
+    pops = []
+    with rasterio.open(worldpop_path) as src:
+        for buf in segs["buffer"].to_crs(src.crs):
+            # read only the window covering this buffer
+            out_image, out_transform = mask(src, [buf], crop=True, all_touched=False)
+            data = out_image[0]
+            # treat nodata as zero
+            data = np.where(data == src.nodata, 0, data)
+            pops.append(data.sum())
+    segs["pop_density"] = np.array(pops) / segs["area_km2"]
 
     # 2) poi_density
     #    one join, then group
