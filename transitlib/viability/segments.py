@@ -84,7 +84,7 @@ def compute_segment_features(
         predicate="within", how="inner"
     )
     poi_counts = poi_joined.groupby("segment_id").size()
-    segs["poi_density"] = poi_counts.reindex(segs.segment_id, 0) / segs["area_km2"]
+    segs["poi_density"] = poi_counts.reindex(index=segs.segment_id, fill_value=0) / segs["area_km2"]
 
     # 3) wealth_mean
     wj = gpd.sjoin(
@@ -92,7 +92,7 @@ def compute_segment_features(
         predicate="within", how="inner"
     )
     wm = wj.groupby("segment_id")["rwi"].mean()
-    segs["wealth_mean"] = wm.reindex(segs.segment_id).fillna(wm.median())
+    segs["wealth_mean"] = wm.reindex(index=segs.segment_id).fillna(wm.median())
 
     # 4) Pull all pings inside buffers in one go
     p = pings_gdf.copy()
@@ -121,18 +121,18 @@ def compute_segment_features(
     # time‐bucket densities
     for b in ["MP","OP","EP","Night","Weekend"]:
         c = pj[pj.bucket == b].groupby("segment_id")["user_id"].count()
-        feat[f"{b}_dens"] = c.reindex(segs.segment_id, 0) / areas
+        feat[f"{b}_dens"] = c.reindex(index=segs.segment_id, fill_value=0) / areas
 
     # connected: unique users per segment per weekday/weekend
     for label, col in [(False,"conn_weekday_dens"), (True,"conn_weekend_dens")]:
         sub = pj[pj.is_weekend == label]
         u = sub.groupby("segment_id")["user_id"].nunique()
-        feat[col] = u.reindex(segs.segment_id, 0) / areas
+        feat[col] = u.reindex(index=segs.segment_id, fill_value=0) / areas
 
     # transit waypoints
     trans = pj[pj.ping_type == "transit"]
     tcnt = trans.groupby("segment_id")["user_id"].count()
-    feat["transit_wp_dens"] = tcnt.reindex(segs.segment_id, 0) / areas
+    feat["transit_wp_dens"] = tcnt.reindex(index=segs.segment_id, fill_value=0) / areas
 
     # transit_wp_conn = count of transit pings in neighbors’ buffers
     # build neighbor map
