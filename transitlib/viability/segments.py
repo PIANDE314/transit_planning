@@ -80,8 +80,7 @@ def compute_segment_features(
     worldpop_path: str,
     pois_gdf: gpd.GeoDataFrame,
     wealth_gdf: gpd.GeoDataFrame,
-    pings_gdf: gpd.GeoDataFrame,
-    cfg,
+    pings_gdf: gpd.GeoDataFrame
 ) -> Tuple[gpd.GeoDataFrame, pd.DataFrame, MinMaxScaler]:
     # --- 0) prep raster & geometries ---
     src = rasterio.open(worldpop_path)
