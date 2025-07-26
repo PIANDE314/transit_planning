@@ -202,7 +202,7 @@ def compute_segment_features(
     buf_for_rd = buffers_3857.rename(columns={"buffer": "geometry"}).set_geometry("geometry")
     li = (
         gpd.sjoin(
-            lines.("geometry"),
+            lines.set_geometry("geometry"),
             buf_for_rd,
             predicate="intersects",
             how="inner",
