@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 # =============================================================================
 DEFAULTS: Dict[str, Any] = {
     # === Data ingestion (§ 3) ===
-    "download_timeout":   10,   # HTTP timeout (s)
+    "download_timeout":  10,                # HTTP timeout (s)
     "pop_version":       "v2.1",            # WorldPop version
     "buffer_pop":        500.0,             # m buffer for WorldPop around segments
     "buffer_poi":        100.0,             # m buffer for POI stop‑infrastructure
@@ -30,7 +30,7 @@ DEFAULTS: Dict[str, Any] = {
     "avg_pings":         4.5,
     "transit_frac":      0.30,
     "sigma_deg":         0.0005,
-    "simulation_days":   None,   # if None, defaults to Jul & Nov 2019 inside code
+    "simulation_days":   61,      # number of days to simulate (default July + Nov = 61)
 
     # === Viability (§ 3.1, Table 2) ===
     "buffer_viability":  500.0,   # m buffer for feature extraction
@@ -41,7 +41,7 @@ DEFAULTS: Dict[str, Any] = {
     "neg_thresh":        0.80,    # probability threshold for negatives
     "self_max_iters":    200,     # max self‑training iterations
     "self_test_size":    0.2,     # validation split for initial model
-    "random_state":      0,      # global RNG seed
+    "random_state":      0,       # global RNG seed
 
     # === Stop extraction (§ 3.2) ===
     "ping_buffer":       100.0,   # m buffer for selecting pings
