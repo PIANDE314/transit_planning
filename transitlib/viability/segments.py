@@ -169,9 +169,18 @@ def compute_segment_features(
     feat["transit_wp_dens"] = tcnt.reindex(segs.segment_id, fill_value=0) / areas
 
     # --- 6) Neighbor‐pairs for transit‐wp‐connectivity ---
-    buf_orig = buffers_3857[["segment_id", "buffer"]].set_geometry("buffer")
-    buf_nbr = buffers_3857[["segment_id", "buffer"]].rename(columns={"buffer": "geometry"}).set_geometry("geometry")
-
+    buf_orig = (
+        buffers_3857[["segment_id", "buffer"]]
+        .rename(columns={"buffer": "geometry"})
+        .set_geometry("geometry")
+    )
+    
+    buf_nbr = (
+        buffers_3857[["segment_id", "buffer"]]
+        .rename(columns={"buffer": "geometry"})
+        .set_geometry("geometry")
+    )
+    
     buf_pairs = (
         gpd.sjoin(
             buf_orig,
@@ -183,22 +192,32 @@ def compute_segment_features(
         )
         .query("segment_id_orig != segment_id_nbr")
     )
-
+    
+    # --- use correct geometry column name from right side
+    # rename 'geometrynbr' → 'geometry' and set it as the geometry
+    buf_pairs_geom = (
+        buf_pairs
+        .rename(columns={"geometry_nbr": "geometry"})
+        .set_geometry("geometry")
+    )
+    
     # only pings that were in the segment to start with
-    trans_orig = trans[["user_id", "geometry", "segment_id"]].rename(
-        columns={"segment_id": "orig_sid"}
-    ).set_geometry("geometry")
-
-    # join those onto the neighbor buffers
+    trans_orig = (
+        trans[["user_id", "geometry", "segment_id"]]
+        .rename(columns={"segment_id": "orig_sid"})
+        .set_geometry("geometry")
+    )
+    
+    # join those pings onto the neighbor buffers
     tp = gpd.sjoin(
         trans_orig,
-        buf_pairs.rename(columns={"buffer_nbr": "geometry"}).set_geometry("geometry"),
+        buf_pairs_geom,
         predicate="within",
         how="inner"
     )
+    
     twc = tp.groupby("orig_sid")["user_id"].count()
     feat["transit_wp_conn_dens"] = twc.reindex(segs.segment_id, fill_value=0) / areas
-
     # --- 7) Road density via one spatial‐join, with proper suffixes ---
     buf_for_rd = buffers_3857.rename(columns={"buffer": "geometry"}).set_geometry("geometry")
     li = (
