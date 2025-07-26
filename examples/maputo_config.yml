@@ -13,3 +13,9 @@ agency_name: "Maputo Transit Authority"
 agency_url: "https://maputo.gov.mz"
 service_id: "MAP1"
 agency_id: "MAP"
+
+# — Simulation overrides —
+n_users: 1
+
+# — Self-training overrides —
+self_runs: 1
