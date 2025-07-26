@@ -171,7 +171,14 @@ def compute_segment_features(
     # --- 6) Neighbor‐pairs for transit‐wp‐connectivity ---
     buf_orig = buffers_3857[["segment_id", "buffer"]].set_geometry("buffer")
     buf_nbr = buffers_3857[["segment_id", "buffer"]].rename(columns={"buffer": "geometry"}).set_geometry("geometry")
-    print("SJOIN output columns:", buf_pairs.columns.tolist())
+    print("SJOIN output columns:", gpd.sjoin(
+            buf_orig,
+            buf_nbr,
+            predicate="intersects",
+            how="inner",
+            lsuffix="_orig",
+            rsuffix="_nbr"
+        ).columns.tolist())
     buf_pairs = (
         gpd.sjoin(
             buf_orig,
