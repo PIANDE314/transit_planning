@@ -1,5 +1,5 @@
 # — Basic geography & data locations —
-place_name: "Greater Maputo, Mozambique"    # used for OSM queries
+place_name: "Maputo, Mozambique"    # used for OSM queries
 country_name: "Mozambique"                  # for HDX RWI search
 country_code: "MOZ"                          # for WorldPop & HDX suffix
 
