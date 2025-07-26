@@ -51,7 +51,7 @@ def extract_candidate_stops(
         'type': ['extracted'] * len(centroids)
     }, geometry='geometry', crs=segments_gdf.crs)
 
-    osm = pois_gdf.copy().rename_geometry('geometry')
+    osm = pois_gdf.copy()
     osm['type'] = 'osm'
     osm = osm[['geometry', 'type']]
 
