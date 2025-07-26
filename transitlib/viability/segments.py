@@ -3,6 +3,8 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
+from rasterio import features
+from rasterio.mask import mask
 from shapely.geometry import LineString
 from shapely.strtree import STRtree
 from sklearn.preprocessing import MinMaxScaler
