@@ -27,6 +27,7 @@ dependencies = [
   "scipy",            # stats (accessibility compare)
   "scikit-learn",     # ML self‑training
   "rasterio",         # raster masking
+  "rasterstats",      # raster stats
   "shapely",          # geometries
   "click"             # if you later add CLI entrypoints
 ]
