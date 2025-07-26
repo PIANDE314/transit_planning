@@ -16,7 +16,7 @@ def extract_candidate_stops(
     """
     Cluster pings within viable road buffers; extract centroid stops.
     """
-    buf = cfg.get("buffer_poi")
+    buf = cfg.get("ping_buffer")
     eps = cfg.get("db_eps")
     min_samples = cfg.get("db_min_samples")
     top_frac = cfg.get("top_frac_stops")
