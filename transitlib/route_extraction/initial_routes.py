@@ -1,7 +1,7 @@
 import random
 from typing import List, Tuple, Dict
 import networkx as nx
-from transit_planner.config import Config
+from transitlib.config import Config
 
 cfg = Config()
 
