@@ -35,6 +35,11 @@ def simulate_users(
             days.append(cur)
             cur += timedelta(days=1)
 
+    hourly_pmf = np.array(cfg.get("hourly_distribution", [1/24] * 24)).astype(float)
+    if len(hourly_pmf) != 24:
+        raise ValueError("hourly_distribution must have exactly 24 values.")
+    hourly_pmf /= hourly_pmf.sum()
+
     ping_records = []
     od_counts = Counter()
     nodes = list(G_latlon.nodes())
