@@ -15,7 +15,7 @@ service_id: "MAP1"
 agency_id: "MAP"
 
 # — Simulation overrides —
-n_users: 10
+n_users: 1
 
 # — Self-training overrides —
-self_runs: 10
+self_runs: 1
