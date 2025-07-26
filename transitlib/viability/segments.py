@@ -22,7 +22,7 @@ def extract_road_segments(G_proj: nx.Graph) -> gpd.GeoDataFrame:
     """
     Extract OSM edges of 6 types; buffer each and compute area.
     """
-    buf = cfg.get("buffer_pop")
+    buf = cfg.get("buffer_viability")
     rows = []
     for idx, (u, v, data) in enumerate(G_proj.edges(data=True)):
         hw = data.get("highway")
