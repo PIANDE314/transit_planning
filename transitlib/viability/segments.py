@@ -6,6 +6,7 @@ import rasterio
 from rasterio import features
 from rasterio.mask import mask
 from shapely.geometry import LineString
+from shapely.strtree import STRtree
 from sklearn.preprocessing import MinMaxScaler
 from rasterstats import zonal_stats
 from typing import Tuple
@@ -107,8 +108,9 @@ def compute_segment_features(
     p["bucket"] = p.timestamp.dt.hour.map(_bucket)
     p.loc[p.is_weekend, "bucket"] = "Weekend"
 
+    p_proj = p.to_crs(segs.crs)
     pj = gpd.sjoin(
-        p, segs.set_geometry("buffer"),
+        p_proj, segs.set_geometry("buffer"),
         predicate="within", how="inner"
     )
 
@@ -138,7 +140,7 @@ def compute_segment_features(
     # build neighbor map
     bufs = list(segs["buffer"])
     ids  = list(segs["segment_id"])
-    tree = nx.strtree.STRtree(bufs)
+    tree = STRtree(bufs)
     # precompute neighbor‐lists once
     nbr_map = {
         sid: [
@@ -165,7 +167,7 @@ def compute_segment_features(
     # 6) Road density via STRtree + id→index
     geoms = segs.geometry.values
     lens  = segs.length_m.values
-    tree2 = nx.strtree.STRtree(geoms)
+    tree2 = STRtree(geoms)
     geom_idx = {id(g): i for i,g in enumerate(geoms)}
     rd = []
     for i, buf in enumerate(bufs):
