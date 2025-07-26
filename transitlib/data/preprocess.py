@@ -44,7 +44,7 @@ def load_rwi_csv(
 def points_to_gdf(
     df:    pd.DataFrame,
     x_col: str = "longitude",
-    y_col: str = "latitude,
+    y_col: str = "latitude",
     crs:    str = "EPSG:4326"
 ) -> gpd.GeoDataFrame:
     """
