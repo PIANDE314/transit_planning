@@ -2,5 +2,7 @@
 name = "transitlib"
 version = "1.0.0"
 description = "Transit Planning"
-authors = ["Rudra Patel"]
+authors = [
+  { name = "Rudra Patel" }
+]
 dependencies = []
