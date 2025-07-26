@@ -94,18 +94,18 @@ class Config:
     Centralized configuration loader.
 
     Loads user overrides from a YAML/JSON file (path can be passed in or
-    set via TRANSIT_PLANNER_CONFIG env var), and fills in any missing
+    set via TRANSIT_PLANNING_CONFIG env var), and fills in any missing
     parameters from DEFAULTS above.
     """
     def __init__(self, path: Optional[Path] = None):
         # 1) Determine path: explicit > env var > error
         if path is None:
-            env = os.getenv("TRANSIT_PLANNER_CONFIG")
+            env = os.getenv("TRANSIT_PLANNING_CONFIG")
             if env:
                 path = Path(env)
             else:
                 raise RuntimeError(
-                    "No config path provided and TRANSIT_PLANNER_CONFIG not set"
+                    "No config path provided and TRANSIT_PLANNING_CONFIG not set"
                 )
         self.path = Path(path)
         # 2) Load file (YAML or JSON)
