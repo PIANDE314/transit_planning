@@ -46,13 +46,13 @@ def initialize_seed_labels(
 
 
 def train_initial_model(
-    seeds_df: pd.DataFrame,
-    test_size: float = 0.2
+    seeds_df: pd.DataFrame
 ) -> Tuple[RandomForestClassifier, pd.DataFrame, pd.Series]:
     """
     Train Random Forest on seed set.
     """
     random_state = cfg.get("random_state")
+    test_size = cfg.get("self_test_size")
 
     X = seeds_df.drop(columns='label')
     y = seeds_df['label']
@@ -122,12 +122,13 @@ def inject_noise_labels(
 def run_self_training(
     segments_gdf: gpd.GeoDataFrame,
     feature_matrix: pd.DataFrame,
-    poi_gdf: gpd.GeoDataFrame,
-    max_iters: int = 200
+    poi_gdf: gpd.GeoDataFrame
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Run self-training procedure until convergence or maximum iterations.
     """
+    max_iters = cfg.get("self_max_iters")
+    
     seeds = initialize_seed_labels(segments_gdf, feature_matrix, poi_gdf)
     history = []
     for it in range(1, max_iters + 1):
