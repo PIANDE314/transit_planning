@@ -9,7 +9,7 @@ from shapely.geometry import LineString
 from shapely.strtree import STRtree
 from sklearn.preprocessing import MinMaxScaler
 from rasterstats import zonal_stats
-from typing import Tuple
+from typing import Tuple, Dict
 from transitlib.config import Config
 
 cfg = Config()
@@ -170,7 +170,7 @@ def compute_segment_features(
 
     # --- 6) Neighbor‐pairs for transit‐wp‐connectivity ---
     buf_orig = buffers_3857[["segment_id", "buffer"]].set_geometry("buffer")
-    buf_nbr  = buf_orig.rename(columns={"buffer": "geometry"})
+    buf_nbr  = buf_orig.rename(columns={"buffer": "geometry"}).set_geometry("geometry")
     buf_pairs = (
         gpd.sjoin(
             buf_orig,
