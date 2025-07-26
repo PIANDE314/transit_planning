@@ -22,25 +22,35 @@ def build_stop_graph(
       - Node attributes: 'footfall', 'lat', 'lon'
       - Edge attributes: 'length' (shortest-path) and 'demand'
     """
+    # 1) snap stops → nodes
     node_ids = map_stops_to_nodes(G_latlon, stops)
-    G = nx.Graph()
 
-    for idx, node in enumerate(node_ids):
+    # 2) precompute all single-source shortest paths from each stop node
+    #    This runs Dijkstra |S| times instead of |S|*(|S|-1)/2 times.
+    lengths = {
+        u: nx.single_source_dijkstra_path_length(G_latlon, u, weight="length")
+        for u in node_ids
+    }
+
+    G = nx.Graph()
+    # 3) add nodes
+    for idx, u in enumerate(node_ids):
         G.add_node(
-            node,
+            u,
             footfall=float(stops.iloc[idx][footfall_col]),
-            lat=G_latlon.nodes[node]["y"],
-            lon=G_latlon.nodes[node]["x"],
+            lat=G_latlon.nodes[u]["y"],
+            lon=G_latlon.nodes[u]["x"],
         )
 
+    # 4) add edges by lookup in precomputed lengths
     for i, u in enumerate(node_ids):
-        for v in node_ids[i + 1 :]:
-            try:
-                length = nx.shortest_path_length(G_latlon, u, v, weight="length")
-            except nx.NetworkXNoPath:
+        for v in node_ids[i+1:]:
+            length_uv = lengths[u].get(v)
+            if length_uv is None:
+                # no path
                 continue
             demand = od_counts.get((u, v), 0) + od_counts.get((v, u), 0)
-            G.add_edge(u, v, length=length, demand=int(demand))
+            G.add_edge(u, v, length=length_uv, demand=int(demand))
 
     return G
 
