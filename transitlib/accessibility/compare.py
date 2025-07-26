@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from typing import Dict, List, Set, Tuple
 from scipy.stats import linregress, pearsonr
-from transit_planner.config import Config
+from transitlib.config import Config
 
 cfg = Config()
 
