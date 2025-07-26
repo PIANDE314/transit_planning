@@ -70,6 +70,8 @@ def main():
 
     # 7) Self‑train to label viable vs non‑viable
     seeds_df, history_df = run_self_training(segs, feat_mat, pois)
+    print("Self-training ensemble history:")
+    print(history_df.groupby("iter").agg({"new_pos": "sum", "new_neg": "sum"}))
     # attach final label back to segments
     segs["final_viable"] = segs_feat["segment_id"].apply(
         lambda sid: int(seeds_df.loc[sid, "label"])
