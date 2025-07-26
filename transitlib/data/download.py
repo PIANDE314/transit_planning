@@ -3,7 +3,7 @@ from pathlib import Path
 import requests
 import zipfile
 from typing import Union
-from transit_planner.config import Config
+from transitlib.config import Config
 
 cfg = Config()
 
