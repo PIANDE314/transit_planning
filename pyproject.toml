@@ -1,2 +1,6 @@
-[tool.poetry.scripts]
-transitlib = "transitlib.cli:main"
+[project]
+name = "transitlib"
+version = "1.0.0"
+description = "Transit Planning"
+authors = ["Rudra Patel"]
+dependencies = []
