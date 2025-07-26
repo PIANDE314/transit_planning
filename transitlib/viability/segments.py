@@ -169,7 +169,7 @@ def compute_segment_features(
     feat["transit_wp_dens"] = tcnt.reindex(segs.segment_id, 0) / areas
 
     # --- 6) Neighbor‐pairs for transit‐wp‐connectivity ---
-    buf_orig = buffers_3857[["segment_id", "buffer"]].("buffer")
+    buf_orig = buffers_3857[["segment_id", "buffer"]].set_geometry("buffer")
     buf_nbr  = buf_orig.rename(columns={"buffer": "geometry"})
     buf_pairs = (
         gpd.sjoin(
