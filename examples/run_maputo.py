@@ -70,10 +70,7 @@ def main():
 
     # 7) Self‑train to label viable vs non‑viable
     final_labels = run_self_training(segs, feat_mat, pois)
-    # attach final label back to segments
-    segs["final_viable"] = segs_feat["segment_id"].apply(
-        lambda sid: int(final_labels.loc[sid, "label"])
-    )
+    segs["final_viable"] = segs_feat["segment_id"].map(final_labels).astype(int)
 
     # 8) Stop extraction
     stops = extract_candidate_stops(segs, pings_gdf, pois, final_label="final_viable")
