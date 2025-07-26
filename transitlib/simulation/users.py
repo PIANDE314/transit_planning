@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from shapely.geometry import Point
 from collections import Counter
 from typing import Optional, List, Tuple, Dict
-from transit_planner.config import Config
+from transitlib.config import Config
 
 cfg = Config()
 
