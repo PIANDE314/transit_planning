@@ -50,6 +50,7 @@ def simulate_users(
             for _ in range(np.random.poisson(avg_pings)):
                 hour = np.random.choice(24, p=hourly_pmf)
                 ts = day + timedelta(hours=hour, minutes=random.uniform(0,60))
+                path = None
                 if random.random() < transit_frac:
                     o, d = random.sample(nodes, 2)
                     try:
@@ -67,7 +68,7 @@ def simulate_users(
                 lon = G_latlon.nodes[node]["x"] + np.random.normal(0, sigma_deg)
                 ping_records.append({
                     "user_id": uid, "timestamp": ts,
-                    "ping_type": "transit" if node in path else "home",
+                    "ping_type": "transit" if path and node in path else "home",
                     "geometry": Point(lon, lat)
                 })
 
