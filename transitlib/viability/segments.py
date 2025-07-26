@@ -240,7 +240,7 @@ def compute_segment_features(
             on="segment_id_nbr"
         )
     )
-    rd = li.groupby("segment_id")["length_m"].sum().reindex(segs.segment_id, fill_value=0)
+    rd = li.groupby("segment_id_orig")["length_m"].sum().reindex(segs.segment_id, fill_value=0)
     feat["road_density"] = rd / areas
 
     # --- 8) Highway type ordinal & assemble matrix ---
