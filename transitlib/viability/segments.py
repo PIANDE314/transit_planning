@@ -8,7 +8,7 @@ from sklearn.preprocessing import MinMaxScaler
 from rasterio import features
 from rasterio.mask import mask
 from typing import Tuple
-from transit_planner.config import Config
+from transitlib.config import Config
 
 cfg = Config()
 
