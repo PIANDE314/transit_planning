@@ -1,0 +1,15 @@
+# — Basic geography & data locations —
+place_name: "Greater Maputo, Mozambique"    # used for OSM queries
+country_name: "Mozambique"                  # for HDX RWI search
+country_code: "MZ"                          # for WorldPop & HDX suffix
+
+raw_data_dir: "data/raw"                    # where downloaded files go
+intermediate_dir: "data/intermediate"       # caches for segments, features, stops, etc.
+gtfs_output_dir: "output/gtfs_maputo"       # final GTFS feed
+
+# — GTFS metadata overrides —
+agency_timezone: "Africa/Maputo"
+agency_name: "Maputo Transit Authority"
+agency_url: "https://maputo.gov.mz"
+service_id: "MAP1"
+agency_id: "MAP"
