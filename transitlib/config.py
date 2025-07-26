@@ -42,7 +42,7 @@ DEFAULTS: Dict[str, Any] = {
     "K_neg":             5,       # max new negative seeds per iter
     "pos_thresh":        0.95,    # probability threshold for positives
     "neg_thresh":        0.80,    # probability threshold for negatives
-    "logreg_neg_tresh":  0.90,    # treshold for label-0 segments
+    "logreg_neg_thresh":  0.90,   # threshold for label-0 segments
     "noise_thresh_frac": 0.5,     # trigger for noise injection
     "self_max_iters":    200,     # max self‑training iterations
     "self_test_size":    0.2,     # validation split for initial model
