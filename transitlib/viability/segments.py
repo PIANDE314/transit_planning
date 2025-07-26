@@ -230,10 +230,10 @@ def compute_segment_features(
             buf_for_rd,
             predicate="intersects",
             how="inner",
-            lsuffix="",
-            rsuffix="_nbr"
+            lsuffix="orig",
+            rsuffix="nbr"
         )
-        .query("segment_id != segment_id_nbr")
+        .query("segment_id_orig != segment_id_nbr")
         .merge(
             lines[["segment_id", "length_m"]]
             .rename(columns={"segment_id": "segment_id_nbr"}),
