@@ -6,7 +6,7 @@ from shapely.geometry import LineString
 from sklearn.preprocessing import MinMaxScaler
 from rasterstats import zonal_stats
 from typing import Tuple
-from transit_planner.config import Config
+from transitlib.config import Config
 
 cfg = Config()
 
