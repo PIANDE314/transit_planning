@@ -10,8 +10,6 @@ DEFAULTS: Dict[str, Any] = {
     # === Data ingestion (§ 3) ===
     "download_timeout":  10,                # HTTP timeout (s)
     "pop_version":       "v2.1",            # WorldPop version
-    "buffer_pop":        500.0,             # m buffer for WorldPop around segments
-    "buffer_poi":        100.0,             # m buffer for POI stop‑infrastructure
 
     # HDX RWI
     "hdx_search_api":    "https://data.humdata.org/api/3/action/package_search",
@@ -36,6 +34,7 @@ DEFAULTS: Dict[str, Any] = {
     ],
 
     # === Viability (§ 3.1, Table 2) ===
+    "buffer_poi":        100.0,   # m buffer for POI stop‑infrastructure
     "buffer_viability":  500.0,   # m buffer for feature extraction
     "neg_percentile":    15.0,    # bottom X% for negative seeds
     "K_pos":             5,       # max new positive seeds per iter
