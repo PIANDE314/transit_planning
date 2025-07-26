@@ -3,7 +3,7 @@ import pandas as pd
 import geopandas as gpd
 from shapely.geometry import Point
 from sklearn.cluster import DBSCAN
-from transit_planner.config import Config
+from transitlib.config import Config
 
 cfg = Config()
 
