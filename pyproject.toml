@@ -1,0 +1,2 @@
+[tool.poetry.scripts]
+transitlib = "transitlib.cli:main"
