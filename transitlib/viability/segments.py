@@ -235,23 +235,19 @@ def compute_segment_features(
             rsuffix="nbr"
         )
         .query("segment_id_orig != segment_id_nbr")
+        .merge(
+            lines[["segment_id", "length_m"]]
+            .rename(columns={"segment_id": "segment_id_nbr"}),
+            on="segment_id_nbr"
+        )
     )
 
-    print(li.columns)
-    print(lines[["segment_id", "length_m"]].dtypes)
-    print(li["segment_id_nbr"].dtype)
-    print(lines["segment_id"].dtype)
-
-    li = li.merge(
-         lines[["segment_id", "length_m"]]
-        .rename(columns={"segment_id": "segment_id_nbr"}),
-        on="segment_id_nbr"
-    )
-
-    print(li.head())
-    print("length_m" in li.columns)
+    li = li.rename(columns={
+        "length_m_x": "length_m_orig",
+        "length_m_y": "length_m_nbr"
+    })
     
-    rd = li.groupby("segment_id_orig")["length_m"].sum().reindex(segs.segment_id, fill_value=0)
+    rd = li.groupby("segment_id_orig")["length_m_nbr"].sum().reindex(segs.segment_id, fill_value=0)
     feat["road_density"] = rd / areas
 
     # --- 8) Highway type ordinal & assemble matrix ---
