@@ -32,6 +32,7 @@ DEFAULTS: Dict[str, Any] = {
         {"start": "2019-07-01", "end": "2019-07-31"},
         {"start": "2019-11-01", "end": "2019-11-30"}
     ],
+    "hourly_distribution": [1/24.0] * 24,
 
     # === Viability (§ 3.1, Table 2) ===
     "buffer_poi":        100.0,   # m buffer for POI stop‑infrastructure
