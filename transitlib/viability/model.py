@@ -9,14 +9,24 @@ from transitlib.config import Config
 
 cfg = Config()
 
+poi_buf = cfg.get("buffer_poi")
+neg_pct = cfg.get("neg_percentile")
+K_pos = cfg.get("K_pos")
+K_neg = cfg.get("K_neg")
+pos_th = cfg.get("pos_thresh")
+neg_th = cfg.get("neg_thresh")
+logreg_neg_th = cfg.get("logreg_neg_thresh")
+noise_th_frac = cfg.get("noise_thresh_frac")
+max_iters = cfg.get("self_max_iters")
+test_size = cfg.get("self_test_size")
+runs = cfg.get("self_runs")
+rs = cfg.get("random_state")
+
 def initialize_seed_labels(
     segments_gdf: gpd.GeoDataFrame,
     feature_matrix: pd.DataFrame,
     poi_gdf: gpd.GeoDataFrame
 ) -> pd.DataFrame:
-    poi_buf = cfg.get("buffer_poi")
-    neg_pct = cfg.get("neg_percentile")
-    rs = cfg.get("random_state")
 
     seg_buf = segments_gdf.copy()
     seg_buf['buffer'] = seg_buf.geometry.buffer(poi_buf)
@@ -60,14 +70,12 @@ def expand_negatives_with_logreg(
 
     unlabeled = feature_matrix.index.difference(seeds_df.index)
     probs = model.predict_proba(feature_matrix.loc[unlabeled])[:, 0]  # P(label=0)
-    high_conf_neg = feature_matrix.loc[unlabeled][probs >= 0.9]
+    high_conf_neg = feature_matrix.loc[unlabeled][probs >= logreg_neg_th]
     high_conf_neg["label"] = 0
 
     return pd.concat([seeds_df, high_conf_neg])
 
 def train_initial_model(seeds_df: pd.DataFrame) -> Tuple[RandomForestClassifier, pd.DataFrame, pd.Series]:
-    rs = cfg.get("random_state")
-    test_size = cfg.get("self_test_size")
 
     X = seeds_df.drop(columns='label')
     y = seeds_df['label']
@@ -97,10 +105,6 @@ def select_pseudo_labels(
     feature_matrix: pd.DataFrame,
     seeds_df: pd.DataFrame
 ) -> Tuple[List[int], List[int]]:
-    K_pos = cfg.get("K_pos")
-    K_neg = cfg.get("K_neg")
-    pos_th = cfg.get("pos_thresh")
-    neg_th = cfg.get("neg_thresh")
 
     unl = feature_matrix.index.difference(seeds_df.index)
     probs = model.predict_proba(feature_matrix.loc[unl])
@@ -147,7 +151,6 @@ def run_self_training_single_pass(
     feature_matrix: pd.DataFrame,
     poi_gdf: gpd.GeoDataFrame
 ) -> pd.Series:
-    max_iters = cfg.get("self_max_iters")
 
     seeds = initialize_seed_labels(segments_gdf, feature_matrix, poi_gdf)
     seeds = expand_negatives_with_logreg(seeds, feature_matrix)
@@ -157,7 +160,7 @@ def run_self_training_single_pass(
         pos_c, neg_c = select_pseudo_labels(model, feature_matrix, seeds)
 
         # noise injection only if pseudo-labels sparse
-        if len(pos_c) < cfg.get("K_pos") // 2 or len(neg_c) < cfg.get("K_neg") // 2:
+        if len(pos_c) < K_pos * noise_th_frac or len(neg_c) < K_neg * noise_th_frac:
             final_p, final_n = inject_noise_labels(seeds, pos_c, neg_c, segments_gdf)
         else:
             final_p, final_n = pos_c, neg_c
@@ -182,7 +185,6 @@ def run_self_training(
     segments_gdf: gpd.GeoDataFrame,
     feature_matrix: pd.DataFrame,
     poi_gdf: gpd.GeoDataFrame,
-    runs: int = 100
 ) -> pd.Series:
     label_matrix = []
 
