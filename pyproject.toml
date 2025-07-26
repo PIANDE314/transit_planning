@@ -2,7 +2,39 @@
 name = "transitlib"
 version = "1.0.0"
 description = "Transit Planning"
+readme = "README.md"
 authors = [
   { name = "Rudra Patel" }
 ]
-dependencies = []
+license = { text = "MIT" }
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent"
+]
+# Require Python 3.8 or newer
+requires-python = ">=3.8"
+
+# All the direct dependencies used across your modules:
+dependencies = [
+  "PyYAML",           # for config loading
+  "requests",         # HTTP downloads
+  "osmnx",            # OSM network & POIs
+  "geopandas",        # spatial dataframes
+  "networkx",         # graph algorithms
+  "pandas",           # tabular data
+  "numpy",            # numeric ops
+  "scipy",            # stats (accessibility compare)
+  "scikit-learn",     # ML self‑training
+  "rasterio",         # raster masking
+  "shapely",          # geometries
+  "click"             # if you later add CLI entrypoints
+]
+
+[tool.poetry.scripts]
+# if you want a CLI entrypoint later, e.g.
+# run-maputo = "examples.run_maputo:main"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
