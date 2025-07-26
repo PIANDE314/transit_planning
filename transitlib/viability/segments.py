@@ -152,7 +152,7 @@ def compute_segment_features(
 
     for b in ["MP","OP","EP","Night","Weekend"]:
         c = pj[pj.bucket == b].groupby("segment_id").size()
-        feat[f"{b}_dens"] = c.reindex(segs.segment_id, 0) / areas
+        feat[f"{b}_dens"] = c.reindex(segs.segment_id, fill_value=0) / areas
 
     for weekend_flag, name in [(False, "conn_weekday_dens"), (True, "conn_weekend_dens")]:
         u = (
@@ -160,13 +160,13 @@ def compute_segment_features(
             .groupby("segment_id")["user_id"]
             .nunique()
         )
-        feat[name] = u.reindex(segs.segment_id, 0) / areas
+        feat[name] = u.reindex(segs.segment_id, fill_value=0) / areas
 
     trans = pj[pj.ping_type == "transit"]
 
     # transit waypoint density
     tcnt = trans.groupby("segment_id").size()
-    feat["transit_wp_dens"] = tcnt.reindex(segs.segment_id, 0) / areas
+    feat["transit_wp_dens"] = tcnt.reindex(segs.segment_id, fill_value=0) / areas
 
     # --- 6) Neighbor‐pairs for transit‐wp‐connectivity ---
     buf_orig = buffers_3857[["segment_id", "buffer"]].set_geometry("buffer")
@@ -196,7 +196,7 @@ def compute_segment_features(
         how="inner"
     )
     twc = tp.groupby("orig_sid")["user_id"].count()
-    feat["transit_wp_conn_dens"] = twc.reindex(segs.segment_id, 0) / areas
+    feat["transit_wp_conn_dens"] = twc.reindex(segs.segment_id, fill_value=0) / areas
 
     # --- 7) Road density via one spatial‐join, with proper suffixes ---
     buf_for_rd = buffers_3857.rename(columns={"buffer": "geometry"}).set_geometry("geometry")
@@ -216,7 +216,7 @@ def compute_segment_features(
             on="segment_id_nbr"
         )
     )
-    rd = li.groupby("segment_id")["length_m"].sum().reindex(segs.segment_id, 0)
+    rd = li.groupby("segment_id")["length_m"].sum().reindex(segs.segment_id, fill_value=0)
     feat["road_density"] = rd / areas
 
     # --- 8) Highway type ordinal & assemble matrix ---
