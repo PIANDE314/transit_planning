@@ -1,7 +1,7 @@
 import random
 from typing import List, Tuple, Set, Dict
 import numpy as np
-from transit_planner.config import Config
+from transitlib.config import Config
 
 cfg = Config()
 
