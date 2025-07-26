@@ -13,10 +13,11 @@ def sample_route_length(min_stops=MIN_STOPS, max_stops=MAX_STOPS) -> int:
 
 def generate_initial_routes(
     U: Dict[Tuple[int,int], float],
-    num_routes: int = 64,
     min_stops: int = MIN_STOPS,
     max_stops: int = MAX_STOPS
 ) -> List[List[int]]:
+    num_routes = cfg.get("num_initial_routes")
+    
     edges = list(U.keys())
     weights = [U[e] for e in edges]
     routes = []
