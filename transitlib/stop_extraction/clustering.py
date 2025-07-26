@@ -23,15 +23,9 @@ def extract_candidate_stops(
 
     viable = segments_gdf[segments_gdf[final_label] == 1]
     union_area = viable.geometry.buffer(buf).unary_union
-
-    pings_sel = pings_gdf[pings_gdf.geometry.within(union_area)].copy()
     
-    print(f"Selected {len(pings_sel)} pings for DBSCAN from {len(pings_gdf)} total.")
-    print("segments CRS:", segments_gdf.crs)
-    print("pings CRS:", pings_gdf.crs)
-    print("Union area type:", type(union_area), "is empty:", union_area.is_empty)
-    viable.plot(color='blue')
-    pings_gdf.plot(marker='.', color='red', alpha=0.5)
+    pings_gdf = pings_gdf.to_crs(segments_gdf.crs)
+    pings_sel = pings_gdf[pings_gdf.geometry.within(union_area)].copy()
     
     coords = np.vstack([pings_sel.geometry.x, pings_sel.geometry.y]).T
     db = DBSCAN(eps=eps, min_samples=min_samples)
