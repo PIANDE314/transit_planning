@@ -46,7 +46,10 @@ def extract_candidate_stops(
             np.mean([pt.x for pt in geoms]), np.mean([pt.y for pt in geoms])
         ))
     )
-    extracted = gpd.GeoDataFrame({'type': 'extracted'}, geometry=centroids, crs=segments_gdf.crs)
+    extracted = gpd.GeoDataFrame({
+        'geometry': centroids.values,
+        'type': ['extracted'] * len(centroids)
+    }, geometry='geometry', crs=segments_gdf.crs)
 
     osm = pois_gdf.copy().rename_geometry('geometry')
     osm['type'] = 'osm'
