@@ -224,6 +224,12 @@ def compute_segment_features(
         .rename(columns={"buffer": "geometry"})
         .set_geometry("geometry")
     )
+    
+    print(li.columns)
+    print(lines[["segment_id", "length_m"]].dtypes)
+    print(li["segment_id_nbr"].dtype)
+    print(lines["segment_id"].dtype)
+    
     li = (
         gpd.sjoin(
             lines.set_geometry("geometry"),
@@ -240,6 +246,10 @@ def compute_segment_features(
             on="segment_id_nbr"
         )
     )
+
+    print(li.head())
+    print("length_m" in li.columns)
+    
     rd = li.groupby("segment_id_orig")["length_m"].sum().reindex(segs.segment_id, fill_value=0)
     feat["road_density"] = rd / areas
 
