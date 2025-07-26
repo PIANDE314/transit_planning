@@ -1,7 +1,7 @@
 # — Basic geography & data locations —
 place_name: "Greater Maputo, Mozambique"    # used for OSM queries
 country_name: "Mozambique"                  # for HDX RWI search
-country_code: "MZ"                          # for WorldPop & HDX suffix
+country_code: "MOZ"                          # for WorldPop & HDX suffix
 
 raw_data_dir: "data/raw"                    # where downloaded files go
 intermediate_dir: "data/intermediate"       # caches for segments, features, stops, etc.
