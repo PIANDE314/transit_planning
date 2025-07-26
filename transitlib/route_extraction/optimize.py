@@ -64,13 +64,14 @@ def optimize_routes(
     Q: Dict[Tuple[int,int], float],
     F: Dict[Tuple[int,int], float],
     mst_edges: Set[Tuple[int,int]],
-    num_nodes: int,
-    max_iters: int = 100_000
+    num_nodes: int
 ) -> List[List[int]]:
     """
     Hill‑climb each route by randomly applying insert/delete/swap operators
     and accepting improvements in route_score, for up to max_iters.
     """
+    max_iters = cfg.get("opt_max_iters")
+    
     solution = initial_routes.copy()
     for _ in range(max_iters):
         i = random.randrange(len(solution))
