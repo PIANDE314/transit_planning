@@ -12,14 +12,14 @@ cfg = Config()
 def initialize_seed_labels(
     segments_gdf: gpd.GeoDataFrame,
     feature_matrix: pd.DataFrame,
-    poi_gdf: gpd.GeoDataFrame,
-    neg_percentile: float = 15.0
+    poi_gdf: gpd.GeoDataFrame
 ) -> pd.DataFrame:
     """
     Build initial seed set of positive and negative samples based on proximity and feature distribution.
     """
     buffer_dist = cfg.get("buffer_viability")
     random_state = cfg.get("random_state")
+    neg_percentile = cfg.get("neg_percentile")
 
     seg_buf = segments_gdf.copy()
     seg_buf['buffer'] = seg_buf.geometry.buffer(buffer_dist)
