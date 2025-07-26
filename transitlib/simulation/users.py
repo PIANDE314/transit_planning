@@ -25,8 +25,15 @@ def simulate_users(
     # build hourly PMF
     bucket = cfg.get("hourly_bucket_props", {"morning": .2, "offpeak": .35, "evening": .25, "night": .2})
     # [build mapping & hourly_pmf from bucket]
-    if days is None:
-        days = cfg.get("simulation_days")  # None in defaults → code sets Jul/Nov internally
+    periods: List[Dict[str,str]] = cfg.get("simulation_periods")
+    days = []
+    for p in periods:
+        start = datetime.strptime(p["start"], "%Y-%m-%d")
+        end   = datetime.strptime(p["end"],   "%Y-%m-%d")
+        cur = start
+        while cur <= end:
+            days.append(cur)
+            cur += timedelta(days=1)
 
     ping_records = []
     od_counts = Counter()
