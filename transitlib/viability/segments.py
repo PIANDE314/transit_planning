@@ -2,6 +2,9 @@ import networkx as nx
 import geopandas as gpd
 import pandas as pd
 import numpy as np
+import rasterio
+from rasterio import features
+from rasterio.mask import mask
 from shapely.geometry import LineString
 from sklearn.preprocessing import MinMaxScaler
 from rasterstats import zonal_stats
