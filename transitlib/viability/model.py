@@ -5,7 +5,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, roc_auc_score, log_loss, classification_report
 from sklearn.preprocessing import MinMaxScaler
 from typing import Tuple, List
-from transit_planner.config import Config
+from transitlib.config import Config
 
 cfg = Config()
 
