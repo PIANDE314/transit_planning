@@ -91,7 +91,7 @@ def compute_segment_features(
     buffers_raster = buffers_3857.to_crs(src.crs)
 
     # line‐segments DF for road‐density
-    lines = segs[["segment_id", "geometry", "length_m"]].rename_geometry("geometry")
+    lines = segs[["segment_id", "geometry", "length_m"]].set_geometry("geometry")
 
     # --- 1) Population density (sum over masked window) ---
     pop_sums = batch_zonal_stats(
@@ -169,7 +169,7 @@ def compute_segment_features(
     feat["transit_wp_dens"] = tcnt.reindex(segs.segment_id, 0) / areas
 
     # --- 6) Neighbor‐pairs for transit‐wp‐connectivity ---
-    buf_orig = buffers_3857[["segment_id", "buffer"]].rename_geometry("buffer")
+    buf_orig = buffers_3857[["segment_id", "buffer"]].("buffer")
     buf_nbr  = buf_orig.rename(columns={"buffer": "geometry"})
     buf_pairs = (
         gpd.sjoin(
@@ -202,7 +202,7 @@ def compute_segment_features(
     buf_for_rd = buffers_3857.rename(columns={"buffer": "geometry"}).set_geometry("geometry")
     li = (
         gpd.sjoin(
-            lines.rename_geometry("geometry"),
+            lines.("geometry"),
             buf_for_rd,
             predicate="intersects",
             how="inner",
