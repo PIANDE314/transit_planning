@@ -2,7 +2,7 @@ import osmnx as ox
 import geopandas as gpd
 from typing import Tuple, Dict
 import networkx as nx
-from transit_planner.config import Config
+from transitlib.config import Config
 
 cfg = Config()
 
