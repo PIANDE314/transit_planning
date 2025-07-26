@@ -219,7 +219,11 @@ def compute_segment_features(
     twc = tp.groupby("orig_sid")["user_id"].count()
     feat["transit_wp_conn_dens"] = twc.reindex(segs.segment_id, fill_value=0) / areas
     # --- 7) Road density via one spatial‐join, with proper suffixes ---
-    buf_for_rd = buffers_3857.rename(columns={"buffer": "geometry"}).set_geometry("geometry")
+    buf_for_rd = (
+        buffers_3857[["segment_id", "buffer"]]
+        .rename(columns={"buffer": "geometry"})
+        .set_geometry("geometry")
+    )
     li = (
         gpd.sjoin(
             lines.set_geometry("geometry"),
