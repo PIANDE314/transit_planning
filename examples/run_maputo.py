@@ -70,7 +70,7 @@ def main():
 
     # 7) Self‑train to label viable vs non‑viable
     final_labels = run_self_training(segs, feat_mat, pois)
-    segs["final_viable"] = segs_feat["segment_id"].map(final_labels).astype(int)
+    segs["final_viable"] = segs_feat["segment_id"].map(final_labels).fillna(0).astype(int) #CHANGE THE ZERO LOGIC
 
     # 8) Stop extraction
     stops = extract_candidate_stops(segs, pings_gdf, pois, final_label="final_viable")
