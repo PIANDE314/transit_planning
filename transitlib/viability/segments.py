@@ -225,11 +225,6 @@ def compute_segment_features(
         .set_geometry("geometry")
     )
     
-    print(li.columns)
-    print(lines[["segment_id", "length_m"]].dtypes)
-    print(li["segment_id_nbr"].dtype)
-    print(lines["segment_id"].dtype)
-    
     li = (
         gpd.sjoin(
             lines.set_geometry("geometry"),
@@ -240,11 +235,17 @@ def compute_segment_features(
             rsuffix="nbr"
         )
         .query("segment_id_orig != segment_id_nbr")
-        .merge(
-            lines[["segment_id", "length_m"]]
-            .rename(columns={"segment_id": "segment_id_nbr"}),
-            on="segment_id_nbr"
-        )
+    )
+
+    print(li.columns)
+    print(lines[["segment_id", "length_m"]].dtypes)
+    print(li["segment_id_nbr"].dtype)
+    print(lines["segment_id"].dtype)
+
+    li = li.merge(
+         lines[["segment_id", "length_m"]]
+        .rename(columns={"segment_id": "segment_id_nbr"}),
+        on="segment_id_nbr"
     )
 
     print(li.head())
