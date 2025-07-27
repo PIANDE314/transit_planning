@@ -21,7 +21,7 @@ dependencies = [
   "requests",         # HTTP downloads
   "osmnx",            # OSM network & POIs
   "geopandas",        # spatial dataframes
-  "networkx>=3.5",         # graph algorithms
+  "networkx>=3.5",    # graph algorithms
   "pandas",           # tabular data
   "numpy",            # numeric ops
   "scipy",            # stats (accessibility compare)
@@ -31,9 +31,6 @@ dependencies = [
   "shapely",          # geometries
   "click"             # if you later add CLI entrypoints
 ]
-
-[tool.poetry.dependecies]
-networkx = "^3.5"
 
 [tool.poetry.scripts]
 # if you want a CLI entrypoint later, e.g.
