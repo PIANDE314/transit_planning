@@ -5,6 +5,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, roc_auc_score, log_loss, classification_report
 from typing import Tuple, List
+from joblib import Parallel, delayed
 from transitlib.config import Config
 
 cfg = Config()
@@ -150,34 +151,97 @@ def inject_noise_labels(
 def run_self_training_single_pass(
     segments_gdf: gpd.GeoDataFrame,
     feature_matrix: pd.DataFrame,
-    poi_gdf: gpd.GeoDataFrame
+    poi_gdf: gpd.GeoDataFrame,
+    map_n: Dict[int, set] = None
 ) -> pd.Series:
+    """
+    One pass of self‑training with a warm‑started RandomForest.
+    - Initializes seed labels from POIs + low‑feature negatives.
+    - Expands negatives via logistic regression.
+    - Iteratively grows a RandomForest (warm_start) until no new pseudo‑labels.
+    """
+    # 0) Prepare neighbor map for noise injection (if not passed in)
+    if map_n is None:
+        segs = segments_gdf.reset_index(drop=True)
+        segs['left'] = segs['segment_id']
+        neigh = gpd.sjoin(
+            segs[['left','geometry']],
+            segs[['segment_id','geometry']],
+            predicate='intersects', how='inner'
+        )
+        map_n = neigh.groupby('left')['segment_id'].apply(set).to_dict()
 
+    # 1) Seed labeling
     seeds = initialize_seed_labels(segments_gdf, feature_matrix, poi_gdf)
     seeds = expand_negatives_with_logreg(seeds, feature_matrix)
 
-    for it in range(1, max_iters + 1):
-        model, _, _ = train_initial_model(seeds)
-        pos_c, neg_c = select_pseudo_labels(model, feature_matrix, seeds)
+    # 2) Pre-split train/validation once
+    X_all = seeds.drop(columns='label')
+    y_all = seeds['label']
+    X_tr, X_val, y_tr, y_val = train_test_split(
+        X_all, y_all,
+        test_size=test_size,
+        stratify=y_all,
+        random_state=rs
+    )
 
-        # noise injection only if pseudo-labels sparse
+    # 3) Create a warm‑start RF that starts with zero trees
+    rf = RandomForestClassifier(
+        n_estimators=0,
+        warm_start=True,
+        class_weight='balanced',
+        random_state=rs,
+        n_jobs=-1
+    )
+    trees_per_iter = cfg.get("rf_trees_per_iter", 10)
+
+    # 4) Self‑training loop
+    for it in range(1, max_iters + 1):
+        # grow the forest
+        rf.n_estimators += trees_per_iter
+        rf.fit(X_tr, y_tr)
+
+        # OPTIONAL: print validation metrics
+        y_pred  = rf.predict(X_val)
+        y_proba = rf.predict_proba(X_val)[:, 1]
+        print(
+            f"[Iter {it}] Acc: {accuracy_score(y_val, y_pred):.3f}, "
+            f"AUC: {roc_auc_score(y_val, y_proba):.3f}"
+        )
+
+        # 5) Select new pseudo‑labels
+        pos_c, neg_c = select_pseudo_labels(rf, feature_matrix, seeds)
+
+        # 6) Noise‑injection if needed
         if len(pos_c) < K_pos * noise_th_frac or len(neg_c) < K_neg * noise_th_frac:
             final_p, final_n = inject_noise_labels(seeds, pos_c, neg_c, segments_gdf)
         else:
             final_p, final_n = pos_c, neg_c
 
+        # Remove any that are already in seeds
         final_p = [i for i in final_p if i not in seeds.index]
         final_n = [i for i in final_n if i not in seeds.index]
 
+        # 7) Early stopping on convergence
         if not final_p and not final_n:
-            print(f"Converged at iter {it}")
+            print(f"Converged at iter {it} (no new labels).")
             break
 
-        dp = feature_matrix.loc[final_p].copy()
-        dn = feature_matrix.loc[final_n].copy()
-        dp['label'], dn['label'] = 1, 0
+        # 8) Add new labels and continue
+        dp = feature_matrix.loc[final_p].copy(); dp['label'] = 1
+        dn = feature_matrix.loc[final_n].copy(); dn['label'] = 0
         seeds = pd.concat([seeds, dp, dn]).sort_index()
 
+        # And re-split for next iteration
+        X_all = seeds.drop(columns='label'); y_all = seeds['label']
+        X_tr, X_val, y_tr, y_val = train_test_split(
+            X_all, y_all,
+            test_size=test_size,
+            stratify=y_all,
+            random_state=rs
+        )
+
+    # 9) Build full label series
     full_labels = pd.Series(index=feature_matrix.index, dtype=int)
     full_labels.update(seeds['label'])
     return full_labels
@@ -187,14 +251,31 @@ def run_self_training(
     feature_matrix: pd.DataFrame,
     poi_gdf: gpd.GeoDataFrame,
 ) -> pd.Series:
-    label_matrix = []
+    """
+    Parallelize independent runs, then majority‐vote.
+    """
+    # 1) Prepare cached neighbor map for inject_noise_labels()
+    segs = segments_gdf.reset_index(drop=True)
+    neigh = gpd.sjoin(
+        segs[['segment_id','geometry']],
+        segs[['segment_id','geometry']],
+        predicate='intersects', how='inner',
+        lsuffix='left', rsuffix='right'
+    )
+    map_n = neigh.groupby('left')['segment_id'].apply(set).to_dict()
 
-    for i in range(runs):
-        print(f"\n--- Run {i+1} ---")
-        labels = run_self_training_single_pass(segments_gdf, feature_matrix, poi_gdf)
-        label_matrix.append(labels)
+    # helper to pass the cache in
+    def _single_run(_):
+        return run_self_training_single_pass(
+            segments_gdf, feature_matrix, poi_gdf, map_n=map_n
+        )
 
-    # majority vote
+    # 2) Parallel runs
+    label_matrix = Parallel(n_jobs=cfg.get("n_jobs", 4))(
+        delayed(_single_run)(i) for i in range(runs)
+    )
+
+    # 3) Majority vote
     label_df = pd.DataFrame(label_matrix)
     final_labels = label_df.mode().iloc[0]
     return final_labels
