@@ -92,12 +92,13 @@ def main():
     operational_gtfs = str(gtfs_dir)
     zones = gpd.read_file(raw_dir / "gadm41_MOZ_3.json")
     stops = gpd.read_file(int_dir / "maputo_stops.geojson")
-    stops = stops.to_crs(zones.crs)
+    stops = stops.to_crs(zones.crs)    
+    stops["stop_id"] = stops.index.astype(str)
     stops_with_zone = gpd.sjoin(stops, zones, how="inner", predicate="within")
     zone_id_col = "GID_3"
     zone_map_df = pd.DataFrame({
         "zone_id": stops_with_zone[zone_id_col],
-        "stop_id": stops_with_zone["stop_id"].astype(str)
+        "stop_id": stops_with_zone["stop_id"]
     })
     zone_map_df.to_csv("maputo_zone_map.csv", index=False)
     zone_map = pd.read_csv("maputo_zone_map.csv")
