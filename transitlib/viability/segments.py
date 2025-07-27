@@ -9,8 +9,10 @@ from shapely.geometry import LineString
 from shapely.strtree import STRtree
 from sklearn.preprocessing import MinMaxScaler
 from rasterstats import zonal_stats
-from typing import Tuple, Dict
+from typing import Tuple, Dict, List
 from transitlib.config import Config
+from joblib import Parallel, delayed
+from shapely.strtree import STRtree
 
 cfg = Config()
 
@@ -58,21 +60,31 @@ def batch_zonal_stats(
     batch_size: int = 100
 ) -> np.ndarray:
     """Compute zonal_stats in batches, treating nodata as zero."""
-    out = []
+    # 1) Parallelize the per‐chunk zonal_stats
     with rasterio.open(raster_path) as src:
         src_nodata = nodata if nodata is not None else src.nodata
-        for i in range(0, len(buffers), batch_size):
-            chunk = buffers.iloc[i : i + batch_size]
-            zs = zonal_stats(
-                chunk.geometry,
-                raster_path,
-                stats=stats,
-                all_touched=all_touched,
-                nodata=src_nodata
-            )
-            # zonal_stats sum ignores nodata cells (i.e. treats them like zeros)
-            out.extend(zs)
-    return np.array([z[stats] for z in out])
+    # split into chunks
+    chunks = [
+        buffers.iloc[i : i + batch_size]
+        for i in range(0, len(buffers), batch_size)
+    ]
+
+    def _zs_chunk(chunk: gpd.GeoSeries) -> List[float]:
+        zs = zonal_stats(
+            chunk.geometry,
+            raster_path,
+            stats=stats,
+            all_touched=all_touched,
+            nodata=src_nodata
+        )
+        return [z[stats] for z in zs]
+
+    results = Parallel(n_jobs=cfg.get("n_jobs", 4))(
+        delayed(_zs_chunk)(chunk) for chunk in chunks
+    )
+    # flatten
+    flat = [val for sub in results for val in sub]
+    return np.array(flat)
 
 
 def compute_segment_features(
@@ -128,14 +140,35 @@ def compute_segment_features(
     p = pings_gdf.copy()
     p["is_weekend"] = p.timestamp.dt.weekday >= 5
 
-    def _bucket(h):
-        if  7 <= h < 10:   return "MP"
-        if 10 <= h < 16:   return "OP"
-        if 16 <= h < 19:   return "EP"
-        if 19 <= h < 23:   return "Night"
-        return "OP"
+    hour2bucket = np.array([
+        "Night",  # 0
+        "Night",  # 1
+        "Night",  # 2
+        "Night",  # 3
+        "Night",  # 4
+        "Night",  # 5
+        "Night",  # 6
+        "MP",     # 7
+        "MP",     # 8
+        "MP",     # 9
+        "OP",     # 10
+        "OP",     # 11
+        "OP",     # 12
+        "OP",     # 13
+        "OP",     # 14
+        "OP",     # 15
+        "EP",     # 16
+        "EP",     # 17
+        "EP",     # 18
+        "Night",  # 19
+        "Night",  # 20
+        "Night",  # 21
+        "Night",  # 22
+        "Night",  # 23
+    ], dtype="U8")
 
-    p["bucket"] = p.timestamp.dt.hour.map(_bucket)
+    hrs = p.timestamp.dt.hour.values
+    p["bucket"] = hour2bucket[hrs]
     p.loc[p.is_weekend, "bucket"] = "Weekend"
 
     p_proj = p.to_crs(buffers_3857.crs)
@@ -150,17 +183,21 @@ def compute_segment_features(
     areas = segs.set_index("segment_id")["area_km2"]
     feat: Dict[str, pd.Series] = {}
 
-    for b in ["MP","OP","EP","Night","Weekend"]:
-        c = pj[pj.bucket == b].groupby("segment_id").size()
-        feat[f"{b}_dens"] = c.reindex(segs.segment_id, fill_value=0) / areas
+    # bucket density
+    dens = pj.pivot_table(
+        index="segment_id", columns="bucket",
+        values="user_id", aggfunc="size", fill_value=0
+    )
+    for b in dens.columns:
+        feat[f"{b}_dens"] = dens[b].reindex(segs.segment_id, fill_value=0) / areas
 
-    for weekend_flag, name in [(False, "conn_weekday_dens"), (True, "conn_weekend_dens")]:
-        u = (
-            pj[pj.is_weekend == weekend_flag]
-            .groupby("segment_id")["user_id"]
-            .nunique()
-        )
-        feat[name] = u.reindex(segs.segment_id, fill_value=0) / areas
+    # unique user connectivity
+    uniq = pj.pivot_table(
+        index="segment_id", columns="is_weekend",
+        values="user_id", aggfunc=lambda x: x.nunique(), fill_value=0
+    )
+    feat["conn_weekday_dens"] = uniq.get(False, pd.Series(0, index=uniq.index)).reindex(segs.segment_id, fill_value=0) / areas
+    feat["conn_weekend_dens"] = uniq.get(True, pd.Series(0, index=uniq.index)).reindex(segs.segment_id, fill_value=0) / areas
 
     trans = pj[pj.ping_type == "transit"]
 
@@ -169,37 +206,21 @@ def compute_segment_features(
     feat["transit_wp_dens"] = tcnt.reindex(segs.segment_id, fill_value=0) / areas
 
     # --- 6) Neighbor‐pairs for transit‐wp‐connectivity ---
-    buf_orig = (
-        buffers_3857[["segment_id", "buffer"]]
-        .rename(columns={"buffer": "geometry"})
-        .set_geometry("geometry")
-    )
-    
-    buf_nbr = (
-        buffers_3857[["segment_id", "buffer"]]
-        .rename(columns={"buffer": "geometry"})
-        .set_geometry("geometry")
-    )
-    
-    buf_pairs = (
-        gpd.sjoin(
-            buf_orig,
-            buf_nbr,
-            predicate="intersects",
-            how="inner",
-            lsuffix="orig",
-            rsuffix="nbr"
-        )
-        .query("segment_id_orig != segment_id_nbr")
-    )
-    
-    # --- use correct geometry column name from right side
-    # rename 'geometrynbr' → 'geometry' and set it as the geometry
-    buf_pairs_geom = (
-        buf_pairs
-        .rename(columns={"geometry_nbr": "geometry"})
-        .set_geometry("geometry")
-    )
+    tree = STRtree(buffers_3857.geometry.values)
+
+    buf_pairs = []
+    for sid, geom in zip(buffers_3857.segment_id, buffers_3857.geometry):
+        for nbr_geom in tree.query(geom):
+            # find the segment_id of the neighbor geometry
+            idx = list(buffers_3857.geometry.values).index(nbr_geom)
+            nbr_sid = int(buffers_3857.segment_id.values[idx])
+            if nbr_sid != sid:
+                buf_pairs.append((sid, nbr_sid))
+
+    buf_pairs_df = pd.DataFrame(buf_pairs, columns=["orig", "nbr"])
+    # attach neighbor geometry
+    buf_pairs_df["geometry"] = buffers_3857.set_index("segment_id").geometry.reindex(buf_pairs_df.nbr).values
+    buf_pairs_geom = gpd.GeoDataFrame(buf_pairs_df, geometry="geometry", crs=buffers_3857.crs)
     
     # only pings that were in the segment to start with
     trans_orig = (
@@ -219,35 +240,19 @@ def compute_segment_features(
     twc = tp.groupby("orig_sid")["user_id"].count()
     feat["transit_wp_conn_dens"] = twc.reindex(segs.segment_id, fill_value=0) / areas
     # --- 7) Road density via one spatial‐join, with proper suffixes ---
-    buf_for_rd = (
-        buffers_3857[["segment_id", "buffer"]]
-        .rename(columns={"buffer": "geometry"})
-        .set_geometry("geometry")
+    rd_pairs = []
+    for sid, geom in zip(buffers_3857.segment_id, buffers_3857.geometry):
+        for nbr_geom in tree.query(geom):
+            idx = list(buffers_3857.geometry.values).index(nbr_geom)
+            nbr_sid = int(buffers_3857.segment_id.values[idx])
+            if nbr_sid != sid:
+                rd_pairs.append((sid, nbr_sid))
+    rd_df = pd.DataFrame(rd_pairs, columns=["orig", "nbr"])
+    rd_df = rd_df.merge(
+        lines[["segment_id", "length_m"]].rename(columns={"segment_id": "nbr"}),
+        left_on="nbr", right_on="nbr"
     )
-    
-    li = (
-        gpd.sjoin(
-            lines.set_geometry("geometry"),
-            buf_for_rd,
-            predicate="intersects",
-            how="inner",
-            lsuffix="orig",
-            rsuffix="nbr"
-        )
-        .query("segment_id_orig != segment_id_nbr")
-        .merge(
-            lines[["segment_id", "length_m"]]
-            .rename(columns={"segment_id": "segment_id_nbr"}),
-            on="segment_id_nbr"
-        )
-    )
-
-    li = li.rename(columns={
-        "length_m_x": "length_m_orig",
-        "length_m_y": "length_m_nbr"
-    })
-    
-    rd = li.groupby("segment_id_orig")["length_m_nbr"].sum().reindex(segs.segment_id, fill_value=0)
+    rd = rd_df.groupby("orig")["length_m"].sum().reindex(segs.segment_id, fill_value=0)
     feat["road_density"] = rd / areas
 
     # --- 8) Highway type ordinal & assemble matrix ---
