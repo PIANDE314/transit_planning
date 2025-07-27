@@ -20,13 +20,13 @@ def load_osm_network(
 
     # filenames based on place
     safe = place_name.replace(" ", "_")
-    lat_fn  = raw_dir / f"{safe}_network_latlon.graphml"
-    proj_fn = raw_dir / f"{safe}_network_proj.graphml"
+    lat_fn  = raw_dir / f"{safe}_network_latlon.gpickle"
+    proj_fn = raw_dir / f"{safe}_network_proj.gpickle"
 
     # load if already saved
     if lat_fn.exists() and proj_fn.exists():
-        G_latlon = ox.load_graphml(lat_fn)
-        G_proj   = ox.load_graphml(proj_fn)
+        G_latlon = nx.read_gpickle(lat_fn)
+        G_proj   = nx.read_gpickle(proj_fn)
         return G_latlon, G_proj
     
     # otherwise fetch once and save
@@ -34,8 +34,8 @@ def load_osm_network(
     G_proj   = ox.project_graph(G_latlon, to_crs="EPSG:3857")
 
     # persist for next time
-    ox.save_graphml(G_latlon,  lat_fn)
-    ox.save_graphml(G_proj,   proj_fn)
+    nx.write_gpickle(G_latlon,  lat_fn)
+    nx.write_gpickle(G_proj,   proj_fn)
     return G_latlon, G_proj
 
 
