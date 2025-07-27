@@ -15,6 +15,7 @@ cfg = Config()
 def simulate_users(
     G_latlon: nx.Graph,
     days: Optional[List[datetime]] = None
+    use_path_cache: bool = True
 ) -> Tuple[gpd.GeoDataFrame, Counter]:
     """
     Simulate pings & record edge traversals in one pass, optimized:
@@ -44,12 +45,11 @@ def simulate_users(
 
     nodes = list(G_latlon.nodes())
 
-    # 1) PRECOMPUTE PATH CACHE for every node
-    #    paths[o][d] = list of nodes from o→d, or absent if unreachable
-    PATH_CACHE: Dict[int, Dict[int, List[int]]] = {
-        o: nx.single_source_dijkstra_path(G_latlon, o, weight="length")
-        for o in nodes
-    }
+    if use_path_cache:
+        PATH_CACHE: Dict[int, Dict[int, List[int]]] = {
+            o: nx.single_source_dijkstra_path(G_latlon, o, weight="length")
+            for o in nodes
+        }
 
     # helper for one user
     def _simulate_one(uid: int):
@@ -67,14 +67,24 @@ def simulate_users(
                 ts = day + timedelta(hours=int(hour), minutes=random.uniform(0, 60))
                 if random.random() < transit_frac:
                     o, d = random.sample(nodes, 2)
+                    path = None
                     # 5) early bail‑out if no path cached
-                    if d not in PATH_CACHE[o]:
-                        node = o
+                    if use_path_cache:
+                        if d in PATH_CACHE[o];
+                            path = PATH_CACHE[o][d]
                     else:
-                        path = PATH_CACHE[o][d]
+                        try:
+                            path = nx.shortest_path(G_latlon, o, d, weight="length")
+                        except nx.NetworkXNoPath:
+                            path = None
+
+                    if path:
                         node = random.choice(path)
                         for u, v in zip(path, path[1:]):
                             od_local[(u, v)] += 1
+                    else:
+                        node = o
+                        
                     ptype = "transit"
                 else:
                     # home ping
