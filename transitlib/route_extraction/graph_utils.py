@@ -2,8 +2,8 @@ import networkx as nx
 import osmnx as ox
 from typing import List, Tuple, Dict
 import geopandas as gpd
-from joblib import Parallel, delayed
-from itertools import combinations
+import networkit as nk
+from networkit import nxadapter
 from transitlib.config import Config
 
 cfg = Config()
@@ -38,15 +38,14 @@ def build_stop_graph(
     unique_nodes = agg['node_id'].tolist()
     footfalls   = dict(zip(agg['node_id'], agg[footfall_col]))
 
-    # 1) Run single‑source Dijkstra _once_ per stop, in parallel
-    def _sssp(u):
-        return u, nx.single_source_dijkstra_path_length(G_latlon, u, weight="length")
-
-    results = Parallel(n_jobs=cfg.get("n_jobs", 4), verbose=10)(
-        delayed(_sssp)(u) for u in unique_nodes
-    )
-    lengths = dict(results)   # { u: {v: dist, …}, … }
-
+    # 1) Build a NetworKit graph and compute APSP all at once
+    G_nk = nxadapter.nx2nk(G_latlon, weightAttr="length")
+    lengths = {}
+    for u in unique_nodes:
+        ssp = nk.distance.SSSP(G_nk, u, True, True)  # directed=True, useEdgeWeights=True
+        ssp.run()
+        lengths[u] = ssp.getDistances()
+        
     G = nx.Graph()
     for u in unique_nodes:
         G.add_node(u, footfall=float(footfalls[u]),
@@ -56,7 +55,7 @@ def build_stop_graph(
     # 2) Now add edges by simple lookup
     for i, u in enumerate(unique_nodes):
         for v in unique_nodes[i+1:]:
-            d = lengths[u].get(v)
+            d = lengths[u][v] if v in lengths[u] else None
             if d is None or d == 0:
                 continue
             demand = od_counts.get((u,v),0) + od_counts.get((v,u),0)
