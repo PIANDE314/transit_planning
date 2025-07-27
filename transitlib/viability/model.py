@@ -128,7 +128,7 @@ def inject_noise_labels(
     new_neg: List[int],
     segments_gdf: gpd.GeoDataFrame
 ) -> Tuple[List[int], List[int]]:
-    segs = segments_gdf.reset_index()
+    segs = segments_gdf.reset_index(drop=True)
     segs['left'] = segs['segment_id']
     neigh = gpd.sjoin(
         segs[['left','geometry']],
@@ -168,7 +168,7 @@ def run_self_training_single_pass(
     """
     # 0) Prepare neighbor map for noise injection (if not passed in)
     if map_n is None:
-        segs = segments_gdf.reset_index()
+        segs = segments_gdf.reset_index(drop=True)
         segs['left'] = segs['segment_id']
         neigh = gpd.sjoin(
             segs[['left','geometry']],
@@ -265,13 +265,14 @@ def run_self_training(
     Parallelize independent runs, then majority‐vote.
     """
     # 1) Prepare cached neighbor map for inject_noise_labels()
-    segs = segments_gdf.reset_index()
+    segs = segments_gdf.reset_index(drop=True)
     neigh = gpd.sjoin(
         segs[['segment_id','geometry']],
         segs[['segment_id','geometry']],
         predicate='intersects', how='inner',
-        lsuffix='_left', rsuffix='_right'
+        lsuffix='left', rsuffix='right'
     )
+    print(neigh.columns.tolist())
     map_n = neigh.groupby('segment_id_left')['segment_id_right'].apply(set).to_dict()
 
     # helper to pass the cache in
