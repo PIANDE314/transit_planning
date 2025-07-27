@@ -32,6 +32,9 @@ dependencies = [
   "click"             # if you later add CLI entrypoints
 ]
 
+[tool.poetry.dependecies]
+networkx = "^3.5"
+
 [tool.poetry.scripts]
 # if you want a CLI entrypoint later, e.g.
 # run-maputo = "examples.run_maputo:main"
