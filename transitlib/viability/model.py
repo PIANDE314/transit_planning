@@ -262,7 +262,7 @@ def run_self_training(
         predicate='intersects', how='inner',
         lsuffix='left', rsuffix='right'
     )
-    map_n = neigh.groupby('left')['segment_id'].apply(set).to_dict()
+    map_n = neigh.groupby('segment_id_left')['segment_id_right'].apply(set).to_dict()
 
     # helper to pass the cache in
     def _single_run(_):
