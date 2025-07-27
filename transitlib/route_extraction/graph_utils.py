@@ -34,10 +34,13 @@ def build_stop_graph(
     footfalls = dict(zip(agg['node_id'], agg[footfall_col]))
 
     # 3) Precompute shortest paths once per node
-    lengths = {
-        u: nx.single_source_dijkstra_path_length(G_latlon, u, weight="length")
-        for u in unique_nodes
-    }
+    def _sssp(u):
+        return u, nx.single_source_dijkstra_path_length(G_latlon, u, weight="length")
+
+    results = Parallel(n_jobs=cfg.get("n_jobs", 4))(
+        delayed(_sssp)(u) for u in unique_nodes
+    )
+    lengths = dict(results)
 
     G = nx.Graph()
     # 4) Add nodes with aggregated footfall
