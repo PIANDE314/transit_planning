@@ -198,7 +198,7 @@ def run_self_training_single_pass(
     
     rf = RandomForestClassifier(
         n_estimators=0,
-        warm_start=true,
+        warm_start=True,
         class_weight=class_weights,
         random_state=rs,
         n_jobs=-1
