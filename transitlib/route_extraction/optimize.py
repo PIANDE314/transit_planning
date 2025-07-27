@@ -73,15 +73,19 @@ def optimize_routes(
     and accepting improvements in route_score, for up to max_iters.
     """
     max_iters = cfg.get("opt_max_iters")
-    
+    _route_score = route_score
+    _Q = Q; _F = F; _mst = set(mst_edges); _G = G_stop
+    nbrs_map = {u: set(_G.neighbors(u)) for u in _G.nodes()}
+
     solution = initial_routes.copy()
+    
     for iter in range(max_iters):
         if iter % 1000 == 0:
             print(f"Completed {iter} iterations")
         
         i = random.randrange(len(solution))
         route = solution[i]
-        base = route_score(route, solution, Q, F, mst_edges, num_nodes)
+        base = _route_score(route, solution, _Q, _F, _mst, num_nodes)
 
         # pick operator
         op = random.choice(["insert", "delete", "swap"])
@@ -91,7 +95,7 @@ def optimize_routes(
             used = set(route)
             for idx in range(len(route)-1):
                 u, v = route[idx], route[idx+1]
-                common = set(G_stop.neighbors(u)).intersection(G_stop.neighbors(v))
+                common = nbrs_map[u] & nbrs_map[v]
                 for w in common:
                     if w not in used:
                         candidates.append((idx+1, w))
@@ -111,7 +115,7 @@ def optimize_routes(
             used = set(route)
             for idx in range(1, len(route)-1):
                 u, v = route[idx-1], route[idx+1]
-                common = set(G_stop.neighbors(u)).intersection(G_stop.neighbors(v))
+                common = nbrs_map[u] & nbrs_map[v]
                 for w in common:
                     if w not in used:
                         candidates.append((idx, w))
@@ -121,7 +125,7 @@ def optimize_routes(
             new_route = swap_node(route, idx, node)
 
         # evaluate
-        score_new = route_score(new_route, solution, Q, F, mst_edges, num_nodes)
+        score_new = _route_score(new_route, solution, _Q, _F, _mst, num_nodes)
         if score_new > base:
             solution[i] = new_route
 
