@@ -73,7 +73,10 @@ def optimize_routes(
     max_iters = cfg.get("opt_max_iters")
     
     solution = initial_routes.copy()
-    for _ in range(max_iters):
+    for iter in range(max_iters):
+        if iter % 1000 == 0:
+            print(f"Completed {iter} iterations")
+        
         i = random.randrange(len(solution))
         route = solution[i]
         base = route_score(route, solution, Q, F, mst_edges, num_nodes)
