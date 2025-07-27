@@ -5,6 +5,7 @@ from rasterio.mask import mask
 from shapely.geometry.base import BaseGeometry
 from pathlib import Path
 from typing import Union
+from pyproj import Transformer
 
 def clip_raster_to_region(
     raster_path:   Union[str, Path],
@@ -50,9 +51,12 @@ def points_to_gdf(
     """
     Convert a DataFrame with lon/lat columns to a GeoDataFrame.
     """
-    gdf = gpd.GeoDataFrame(
-        df,
-        geometry=gpd.points_from_xy(df[x_col], df[y_col]),
-        crs=crs
-    )
-    return gdf.to_crs(epsg=3857)
+    # 1) build original GeoDataFrame lightly (no reproj)
+    gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df[x_col], df[y_col]), crs="EPSG:4326")
+
+    # 2) vectorized transform to EPSG:3857
+    transformer = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
+    xs, ys = transformer.transform(df[x_col].values, df[y_col].values)
+    gdf.geometry = gpd.points_from_xy(xs, ys)
+    gdf.set_crs(epsg=3857, inplace=True)
+    return gdf
