@@ -59,7 +59,7 @@ def build_stop_graph(
     G_nk     = nxadapter.nx2nk(G_simple,  weightAttr="length")
     lengths = {}
     for u in unique_nodes:
-        ssp = nk.distance.SSSP(G_nk, u, True, True)  # directed=True, useEdgeWeights=True
+        ssp = nk.distance.Dijkstra(G_nk, u, True, True)  # directed=True, useEdgeWeights=True
         ssp.run()
         lengths[u] = ssp.getDistances()
         
