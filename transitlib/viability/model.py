@@ -134,7 +134,7 @@ def inject_noise_labels(
         segs[['segment_id','geometry']],
         segs[['segment_id','geometry']],
         predicate='intersects', how='inner',
-        lsuffix='_left', rsuffix='_right'
+        lsuffix='left', rsuffix='right'
     )
     map_n = neigh.groupby('segment_id_left')['segment_id_right'].apply(set).to_dict()
 
@@ -271,7 +271,7 @@ def run_self_training(
         segs[['segment_id','geometry']],
         segs[['segment_id','geometry']],
         predicate='intersects', how='inner',
-        lsuffix='_left', rsuffix='_right'
+        lsuffix='left', rsuffix='right'
     )
     map_n = neigh.groupby('segment_id_left')['segment_id_right'].apply(set).to_dict()
 
