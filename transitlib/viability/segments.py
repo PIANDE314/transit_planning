@@ -242,9 +242,8 @@ def compute_segment_features(
     rd_pairs = []
     for sid, geom in zip(buffers_3857.segment_id, buffers_3857.geometry):
         for nbr_geom in tree.query(geom):
-            idx = list(buffers_3857.geometry.values).index(nbr_geom)
-            nbr_sid = int(buffers_3857.segment_id.values[idx])
-            if nbr_sid != sid:
+            nbr_sid = geom_to_sid.get(id(nbr_geom))
+            if nbr_sid is not None and nbr_sid != sid:
                 rd_pairs.append((sid, nbr_sid))
     rd_df = pd.DataFrame(rd_pairs, columns=["orig", "nbr"])
     rd_df = rd_df.merge(
