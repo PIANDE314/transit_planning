@@ -207,14 +207,13 @@ def compute_segment_features(
 
     # --- 6) Neighbor‐pairs for transit‐wp‐connectivity ---
     tree = STRtree(buffers_3857.geometry.values)
+    geom_to_sid = {id(g): sid for g, sid in zip(buffers_3857.geometry.values, buffers_3857.segment_id)}
 
     buf_pairs = []
     for sid, geom in zip(buffers_3857.segment_id, buffers_3857.geometry):
         for nbr_geom in tree.query(geom):
-            # find the segment_id of the neighbor geometry
-            idx = list(buffers_3857.geometry.values).index(nbr_geom)
-            nbr_sid = int(buffers_3857.segment_id.values[idx])
-            if nbr_sid != sid:
+            nbr_sid = geom_to_sid.get(id(nbr_geom))
+            if nbr_sid is not None and nbr_sid != sid:
                 buf_pairs.append((sid, nbr_sid))
 
     buf_pairs_df = pd.DataFrame(buf_pairs, columns=["orig", "nbr"])
