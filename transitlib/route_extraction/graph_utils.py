@@ -3,6 +3,9 @@ import osmnx as ox
 from typing import List, Tuple, Dict
 import geopandas as gpd
 from joblib import Parallel, delayed
+from transitlib.config import Config
+
+cfg = Config()
 
 def map_stops_to_nodes(G_latlon: nx.Graph, stops: gpd.GeoDataFrame) -> List[int]:
     """
