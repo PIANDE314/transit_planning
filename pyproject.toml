@@ -29,7 +29,6 @@ dependencies = [
   "rasterio",         # raster masking
   "rasterstats",      # raster stats
   "shapely",          # geometries
-  "networkit",        # faster graph algorithms
   "click"             # if you later add CLI entrypoints
 ]
 
