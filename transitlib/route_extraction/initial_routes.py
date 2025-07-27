@@ -1,6 +1,7 @@
 import random
 from typing import List, Tuple, Dict
 import networkx as nx
+from joblib import Parallel, delayed
 from transitlib.config import Config
 
 cfg = Config()
@@ -18,10 +19,14 @@ def generate_initial_routes(
     max_stops: int = MAX_STOPS
 ) -> List[List[int]]:
     num_routes = cfg.get("num_initial_routes")
-    
     routes = []
 
-    for _ in range(num_routes):
+    adj: Dict[int, List[Tuple[int, float]]] = {}
+    for (u, v), w in U.items():
+        adj.setdefault(u, []).append((v, w))
+        adj.setdefault(v, []).append((u, w))
+
+    def _build_one(_):
         edges = list(U.keys())
         weights = list(U.values())
         
@@ -37,10 +42,11 @@ def generate_initial_routes(
             start, end = route[0], route[-1]
             candidates = []
             for node in (start, end):
-                for nbr in G_stop.neighbors(node):
+                for nbr, wt in adj.get(node, []):
                     if nbr not in route:
                         edge = (node, nbr) if (node, nbr) in U else (nbr, node)
-                        candidates.append(edge)
+                        candidates.append((edge, U.get(edge, 0.0)))
+            edges, weights = zip(*candidates)
 
             if not candidates:
                 break
@@ -62,6 +68,10 @@ def generate_initial_routes(
                 route.append(u1)
             else:
                 break
-        routes.append(route)
+        return route
+
+    routes = Parallel(n_jobs=cfg.get("n_jobs", 4))(
+        delayed(_build_one)(i) for i in range(num_routes)
+    )
 
     return routes
