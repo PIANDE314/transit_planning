@@ -75,7 +75,7 @@ def main():
     # 8) Stop extraction
     stops = extract_candidate_stops(segs, pings_gdf, pois, final_label="final_viable")
     # (optionally save)
-    stops.to_file(int_dir / "stops.geojson", driver="GeoJSON")
+    stops.to_file(int_dir / "maputo_stops.geojson", driver="GeoJSON")
 
     # 9) Build stop graph & utilities
     G_stop = build_stop_graph(G_latlon, od_counts, stops, footfall_col="footfall")
@@ -89,14 +89,24 @@ def main():
     write_gtfs(G_stop, optimized, lambda r: score_usage(r, Q, F))
 
     # 12) Accessibility comparison
-    # operational_gtfs = "path/to/operational/gtfs"
-    # zone_map = pd.read_csv("path/to/zone_map.csv")
+    operational_gtfs = str(gtfs_dir)
+    zones = gpd.read_file("gadm41_MOZ_3.json")
+    stops = gpd.read_file("maputo_stops.geojson")
+    stops = stops.to_crs(zones.crs)
+    stops_with_zone = gpd.sjoin(stops, zones, how="inner", predicate="within")
+    zone_id_col = "GID_3"
+    zone_map_df = pd.DataFrame({
+        "zone_id": stops_with_zone[zone_id_col],
+        "stop_id": stops_with_zone["stop_id"].astype(str)
+    })
+    zone_map_df.to_csv("maputo_zone_map.csv", index=False)
+    zone_map = pd.read_csv("maputo_zone_map.csv")
     # phone_density = pd.read_csv("path/to/phone_density.csv")
-    # acc_df, comp_stats, bias_stats = compare_accessibility(
-    #     str(gtfs_dir), operational_gtfs, zone_map, wealth_df["rwi"], phone_density["density"]
-    # )
-    # acc_df.to_csv(int_dir / "accessibility_comparison.csv", index=False)
-    # print("Accessibility comparison stats:", comp_stats, bias_stats)
+    acc_df, comp_stats, bias_stats = compare_accessibility(
+        str(gtfs_dir), operational_gtfs, zone_map, wealth_df["rwi"] #phone_density["density"]
+    )
+    acc_df.to_csv(int_dir / "accessibility_comparison.csv", index=False)
+    print("Accessibility comparison stats:", comp_stats, bias_stats)
 
     print(f"All done!  GTFS written to {gtfs_dir.resolve()}")
 
