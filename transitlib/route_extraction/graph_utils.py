@@ -38,6 +38,16 @@ def build_stop_graph(
     unique_nodes = agg['node_id'].tolist()
     footfalls   = dict(zip(agg['node_id'], agg[footfall_col]))
 
+    missing = [(u, v) for u, v, d in G_latlon.edges(data=True) if "length" not in d]
+    print(f"[DEBUG] Total edges: {G_latlon.number_of_edges()}, missing length: {len(missing)}")
+    if missing:
+        # show first few so we can see what's going on
+        print("[DEBUG] Examples of edges without length (u, v, data.keys()):")
+        for u, v in missing[:10]:
+            print("   ", u, v, G_latlon.edges[u, v].keys())
+    print(f"[DEBUG] Graph type: {type(G_latlon)}; is multigraph? {G_latlon.is_multigraph()}")
+    print(f"[DEBUG] CRS: {G_latlon.graph.get('crs')}")
+
     # 1) Build a NetworKit graph and compute APSP all at once
     G_nk = nxadapter.nx2nk(G_latlon, weightAttr="length")
     lengths = {}
