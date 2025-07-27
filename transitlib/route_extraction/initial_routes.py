@@ -12,6 +12,7 @@ def sample_route_length(min_stops=MIN_STOPS, max_stops=MAX_STOPS) -> int:
     return random.randint(min_stops, max_stops)
 
 def generate_initial_routes(
+    G_stop: nx.Graph,
     U: Dict[Tuple[int,int], float],
     min_stops: int = MIN_STOPS,
     max_stops: int = MAX_STOPS
@@ -19,7 +20,7 @@ def generate_initial_routes(
     num_routes = cfg.get("num_initial_routes")
     
     edges = list(U.keys())
-    weights = [U[e] for e in edges]
+    weights = list(U.values())
     routes = []
 
     for _ in range(num_routes):
@@ -31,7 +32,7 @@ def generate_initial_routes(
             start, end = route[0], route[-1]
             candidates = []
             for node in (start, end):
-                for nbr in nx.neighbors(nx.Graph(U), node):
+                for nbr in G_stop.neighbors(node):
                     if nbr not in route:
                         edge = (node, nbr) if (node, nbr) in U else (nbr, node)
                         candidates.append(edge)
