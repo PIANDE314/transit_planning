@@ -90,7 +90,7 @@ def main():
 
     # 12) Accessibility comparison
     operational_gtfs = str(gtfs_dir)
-    zones = gpd.read_file("gadm41_MOZ_3.json")
+    zones = gpd.read_file(raw_dir / "gadm41_MOZ_3.json")
     stops = gpd.read_file("maputo_stops.geojson")
     stops = stops.to_crs(zones.crs)
     stops_with_zone = gpd.sjoin(stops, zones, how="inner", predicate="within")
