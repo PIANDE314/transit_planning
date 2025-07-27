@@ -44,13 +44,18 @@ def write_gtfs(
         }
         for n in G.nodes
     ]
-    pd.DataFrame(stops).to_csv(os.path.join(output_dir, "stops.txt"), index=False)
+    pd.DataFrame(stops).to_csv(Path(output_dir) / "stops.txt", index=False)
 
     # 2. stop_times.txt & 3. shapes.txt
     stop_times, shapes = [], []
     for i, route in enumerate(optimized_routes, start=1):
         trip_id = f"T{i}"
         shape_id = f"S{i}"
+
+        step_lengths = [
+            nx.shortest_path_length(G, route[j], route[j+1], weight="length")
+            for j in range(len(route) - 1)
+        ]
 
         cum_dist = 0.0
         for seq, stop in enumerate(route, start=1):
@@ -62,16 +67,14 @@ def write_gtfs(
                 "shape_dist_traveled": round(cum_dist)
             })
             if seq < len(route):
-                cum_dist += nx.shortest_path_length(G, route[seq - 1], route[seq], weight="length")
+                cum_dist += step_lengths[seq - 1]
 
         h0, m0, s0 = map(int, start_time.split(":"))
         t_sec = h0 * 3600 + m0 * 60 + s0
 
         for seq, stop in enumerate(route, start=1):
             if seq > 1:
-                prev = route[seq - 2]
-                dist = nx.shortest_path_length(G, prev, stop, weight="length")
-                t_sec += dist / speed_mps
+                t_sec += step_lengths[seq - 2] / speed_mps
             hh, rem = divmod(int(t_sec), 3600)
             mm, ss = divmod(rem, 60)
             timestr = f"{hh:02d}:{mm:02d}:{ss:02d}"
@@ -83,8 +86,8 @@ def write_gtfs(
                 "stop_sequence": seq
             })
 
-    pd.DataFrame(stop_times).to_csv(os.path.join(output_dir, "stop_times.txt"), index=False)
-    pd.DataFrame(shapes).to_csv(os.path.join(output_dir, "shapes.txt"), index=False)
+    pd.DataFrame(stop_times).to_csv(Path(output_dir) / "stop_times.txt", index=False)
+    pd.DataFrame(shapes).to_csv(Path(output_dir) / "shapes.txt", index=False)
 
     # 4. frequencies.txt
     usage_scores = [score_usage_fn(r) for r in optimized_routes]
@@ -100,7 +103,7 @@ def write_gtfs(
             "headway_secs": headway_map[rank],
             "exact_times": 0
         })
-    pd.DataFrame(freqs).to_csv(os.path.join(output_dir, "frequencies.txt"), index=False)
+    pd.DataFrame(freqs).to_csv(Path(output_dir) / "frequencies.txt", index=False)
 
     # 5. trips.txt
     trips = [
@@ -112,7 +115,7 @@ def write_gtfs(
         }
         for i in range(1, len(optimized_routes) + 1)
     ]
-    pd.DataFrame(trips).to_csv(os.path.join(output_dir, "trips.txt"), index=False)
+    pd.DataFrame(trips).to_csv(Path(output_dir) / "trips.txt", index=False)
 
     # 6. routes.txt
     routes = [
@@ -125,7 +128,7 @@ def write_gtfs(
         }
         for i in range(1, len(optimized_routes) + 1)
     ]
-    pd.DataFrame(routes).to_csv(os.path.join(output_dir, "routes.txt"), index=False)
+    pd.DataFrame(routes).to_csv(Path(output_dir) / "routes.txt", index=False)
 
     # 7. agency.txt
     agency = [{
@@ -134,7 +137,7 @@ def write_gtfs(
         "agency_url": agency_url,
         "agency_timezone": agency_tz
     }]
-    pd.DataFrame(agency).to_csv(os.path.join(output_dir, "agency.txt"), index=False)
+    pd.DataFrame(agency).to_csv(Path(output_dir) / "agency.txt", index=False)
 
     # 8. calendar.txt
     calendar = [{
@@ -145,4 +148,4 @@ def write_gtfs(
         "start_date": start_date,
         "end_date": end_date
     }]
-    pd.DataFrame(calendar).to_csv(os.path.join(output_dir, "calendar.txt"), index=False)
+    pd.DataFrame(calendar).to_csv(Path(output_dir) / "calendar.txt", index=False)
