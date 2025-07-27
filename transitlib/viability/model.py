@@ -4,6 +4,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, roc_auc_score, log_loss, classification_report
+from sklearn.utils.class_weight import compute_class_weight
 from typing import Tuple, List, Dict
 from joblib import Parallel, delayed
 from transitlib.config import Config
@@ -82,10 +83,14 @@ def train_initial_model(seeds_df: pd.DataFrame) -> Tuple[RandomForestClassifier,
     X = seeds_df.drop(columns='label')
     y = seeds_df['label']
     X_tr, X_val, y_tr, y_val = train_test_split(X, y, test_size=test_size, stratify=y, random_state=rs)
-
+    
+    classes = np.array([0, 1])
+    weights = compute_class_weight('balanced', classes=classes, y=y_tr)
+    class_weights = dict(zip(classes, weights))
+    
     rf = RandomForestClassifier(
         n_estimators=100,
-        class_weight='balanced',
+        class_weight=class_weights,
         random_state=rs,
         n_jobs=-1
     )
@@ -186,10 +191,14 @@ def run_self_training_single_pass(
     )
 
     # 3) Create a warm‑start RF that starts with zero trees
+    classes = np.array([0, 1])
+    weights = compute_class_weight('balanced', classes=classes, y=y_tr)
+    class_weights = dict(zip(classes, weights))
+    
     rf = RandomForestClassifier(
         n_estimators=0,
-        warm_start=True,
-        class_weight='balanced',
+        warm_start=true,
+        class_weight=class_weights,
         random_state=rs,
         n_jobs=-1
     )
