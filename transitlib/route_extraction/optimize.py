@@ -60,6 +60,7 @@ def swap_node(
     return new
 
 def optimize_routes(
+    G_stop: nx.Graph,
     initial_routes: List[List[int]],
     Q: Dict[Tuple[int,int], float],
     F: Dict[Tuple[int,int], float],
