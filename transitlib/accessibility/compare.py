@@ -88,8 +88,8 @@ def compare_accessibility(
     extracted_gtfs: str,
     operational_gtfs: str,
     zone_map: pd.DataFrame,
-    wealth: pd.Series,
-    phone_density: pd.Series
+    wealth: pd.Series
+    #phone_density: pd.Series
 ) -> Tuple[pd.DataFrame, Dict[str, float], Dict[str, Tuple[float, float]]]:
     """
     1) Build GTFS schedules/departure indexes
@@ -157,10 +157,10 @@ def compare_accessibility(
 
     # bias analysis
     mse_zone = (acc_ext - acc_op).pow(2).rename("mse")
-    dfb = pd.concat([mse_zone, wealth, phone_density], axis=1).dropna()
+    dfb = pd.concat([mse_zone, wealth], axis=1).dropna() #phone_density
     bias_stats = {
-        "wealth": pearsonr(dfb.iloc[:,1], dfb["mse"]),
-        "phone":  pearsonr(dfb.iloc[:,2], dfb["mse"])
+        "wealth": pearsonr(dfb.iloc[:,1], dfb["mse"])
+        #"phone":  pearsonr(dfb.iloc[:,2], dfb["mse"])
     }
 
     # final DataFrame
