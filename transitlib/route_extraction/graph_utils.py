@@ -17,37 +17,43 @@ def build_stop_graph(
     stops: gpd.GeoDataFrame,
     footfall_col: str
 ) -> nx.Graph:
-    """
-    Build a fully connected stop graph with:
-      - Node attributes: 'footfall', 'lat', 'lon'
-      - Edge attributes: 'length' (shortest-path) and 'demand'
-    """
-    # 1) snap stops → nodes
+    # 1) Snap stops → nearest OSM nodes
     node_ids = map_stops_to_nodes(G_latlon, stops)
+    stops = stops.copy()
+    stops['node_id'] = node_ids
 
-    # 2) precompute all single-source shortest paths from each stop node
-    #    This runs Dijkstra |S| times instead of |S|*(|S|-1)/2 times.
+    # 2) Collapse duplicates by summing footfall
+    agg = (
+        stops
+        .groupby('node_id')[footfall_col]
+        .sum()
+        .reset_index()
+    )
+    # now agg.node_id are unique graph nodes, agg.footfall is total
+    unique_nodes = agg['node_id'].tolist()
+    footfalls = dict(zip(agg['node_id'], agg[footfall_col]))
+
+    # 3) Precompute shortest paths once per node
     lengths = {
         u: nx.single_source_dijkstra_path_length(G_latlon, u, weight="length")
-        for u in node_ids
+        for u in unique_nodes
     }
 
     G = nx.Graph()
-    # 3) add nodes
-    for idx, u in enumerate(node_ids):
+    # 4) Add nodes with aggregated footfall
+    for u in unique_nodes:
         G.add_node(
             u,
-            footfall=float(stops.iloc[idx][footfall_col]),
-            lat=G_latlon.nodes[u]["y"],
-            lon=G_latlon.nodes[u]["x"],
+            footfall=float(footfalls[u]),
+            lat=G_latlon.nodes[u]['y'],
+            lon=G_latlon.nodes[u]['x']
         )
 
-    # 4) add edges by lookup in precomputed lengths
-    for i, u in enumerate(node_ids):
-        for v in node_ids[i+1:]:
+    # 5) Add edges between each unique pair
+    for i, u in enumerate(unique_nodes):
+        for v in unique_nodes[i+1:]:
             length_uv = lengths[u].get(v)
-            if length_uv is None:
-                # no path
+            if length_uv is None or length_uv == 0:
                 continue
             demand = od_counts.get((u, v), 0) + od_counts.get((v, u), 0)
             G.add_edge(u, v, length=length_uv, demand=int(demand))
