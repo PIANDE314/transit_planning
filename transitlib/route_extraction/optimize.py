@@ -1,6 +1,7 @@
 import random
 from typing import List, Tuple, Set, Dict
 import numpy as np
+import networkx as nx
 from transitlib.config import Config
 
 cfg = Config()
@@ -90,7 +91,7 @@ def optimize_routes(
             used = set(route)
             for idx in range(len(route)-1):
                 u, v = route[idx], route[idx+1]
-                common = set(G.neighbors(u)).intersection(G.neighbors(v))
+                common = set(G_stop.neighbors(u)).intersection(G_stop.neighbors(v))
                 for w in common:
                     if w not in used:
                         candidates.append((idx+1, w))
@@ -110,7 +111,7 @@ def optimize_routes(
             used = set(route)
             for idx in range(1, len(route)-1):
                 u, v = route[idx-1], route[idx+1]
-                common = set(G.neighbors(u)).intersection(G.neighbors(v))
+                common = set(G_stop.neighbors(u)).intersection(G_stop.neighbors(v))
                 for w in common:
                     if w not in used:
                         candidates.append((idx, w))
