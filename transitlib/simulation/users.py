@@ -70,7 +70,7 @@ def simulate_users(
                     path = None
                     # 5) early bail‑out if no path cached
                     if use_path_cache:
-                        if d in PATH_CACHE[o];
+                        if d in PATH_CACHE[o]:
                             path = PATH_CACHE[o][d]
                     else:
                         try:
