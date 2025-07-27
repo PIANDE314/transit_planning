@@ -21,7 +21,7 @@ dependencies = [
   "requests",         # HTTP downloads
   "osmnx",            # OSM network & POIs
   "geopandas",        # spatial dataframes
-  "networkx",         # graph algorithms
+  "networkx>=3.5",         # graph algorithms
   "pandas",           # tabular data
   "numpy",            # numeric ops
   "scipy",            # stats (accessibility compare)
