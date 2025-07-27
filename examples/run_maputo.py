@@ -82,7 +82,7 @@ def main():
     Q, F, M, U = compute_utilities(G_stop)
 
     # 10) Generate & optimize routes
-    init_routes = generate_initial_routes(U)
+    init_routes = generate_initial_routes(G_stop, U)
     optimized = optimize_routes(init_routes, Q, F, set(M.keys()), len(G_stop.nodes))
 
     # 11) Write GTFS feed
