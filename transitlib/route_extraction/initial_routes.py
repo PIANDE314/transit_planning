@@ -38,7 +38,11 @@ def generate_initial_routes(
                         candidates.append(edge)
             if not candidates:
                 break
-            next_edge = random.choices(candidates, weights=[U.get(e, 0.0) for e in candidates])[0]
+            weights = [U.get(e, 0.0) for e in candidates]
+            if sum(weights) == 0:
+                next_edge = random.choice(candidates)
+            else:
+                next_edge = random.choices(candidates, weights=weights, k=1)[0]
             u1, v1 = next_edge
             if u1 == start:
                 route.insert(0, v1)
