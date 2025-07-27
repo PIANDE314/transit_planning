@@ -25,7 +25,7 @@ def load_osm_network(
 
     # load if already saved
     if lat_fn.exists() and proj_fn.exists():
-       G_latlon = ox.load_graphml(lat_fn)
+        G_latlon = ox.load_graphml(lat_fn)
         G_proj   = ox.load_graphml(proj_fn)
         return G_latlon, G_proj
     
