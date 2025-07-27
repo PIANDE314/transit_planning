@@ -40,7 +40,7 @@ def build_stop_graph(
     # 3) Precompute shortest paths once per node
     def _sssp(u):
         return u, nx.single_source_dijkstra_path_length(G_latlon, u, weight="length")
-    print("unique nodes: " + len(unique_nodes) + ", nodes: " + len(G_latlon.nodes) + ", edges: " + len(G_latlon.edges))
+    print("unique nodes: " + str(len(unique_nodes)) + ", nodes: " + str(len(G_latlon.nodes)) + ", edges: " + str(len(G_latlon.edges)))
     results = Parallel(n_jobs=cfg.get("n_jobs", 4))(
         delayed(_sssp)(u) for u in unique_nodes
     )
