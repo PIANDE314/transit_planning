@@ -36,8 +36,8 @@ def load_osm_network(
 
     # load if already saved
     if lat_fn.exists() and proj_fn.exists():
-        G_latlon = nx._load_graph_pickle(lat_fn)
-        G_proj   = nx._load_graph_pickle(proj_fn)
+        G_latlon = _load_graph_pickle(lat_fn)
+        G_proj   = _load_graph_pickle(proj_fn)
         return G_latlon, G_proj
     
     # otherwise fetch once and save
@@ -45,8 +45,8 @@ def load_osm_network(
     G_proj   = ox.project_graph(G_latlon, to_crs="EPSG:3857")
 
     # persist for next time
-    nx._save_graph_pickle(G_latlon,  lat_fn)
-    nx._save_graph_pickle(G_proj,   proj_fn)
+    _save_graph_pickle(G_latlon,  lat_fn)
+    _save_graph_pickle(G_proj,   proj_fn)
     return G_latlon, G_proj
 
 
