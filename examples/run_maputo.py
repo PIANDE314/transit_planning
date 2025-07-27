@@ -22,7 +22,7 @@ from transitlib.stop_extraction.clustering import extract_candidate_stops
 # §3.3: Route Extraction
 from transitlib.route_extraction.graph_utils import build_stop_graph, compute_utilities
 from transitlib.route_extraction.initial_routes import generate_initial_routes
-from transitlib.route_extraction.optimize import optimize_routes
+from transitlib.route_extraction.optimize import score_usage, optimize_routes
 
 # §3.4: GTFS Generation
 from transitlib.gtfs_generation.writer import write_gtfs
