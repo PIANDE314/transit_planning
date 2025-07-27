@@ -57,6 +57,5 @@ def points_to_gdf(
     # 2) vectorized transform to EPSG:3857
     transformer = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
     xs, ys = transformer.transform(df[x_col].values, df[y_col].values)
-    gdf.geometry = gpd.points_from_xy(xs, ys)
-    gdf.set_crs(epsg=3857, inplace=True)
+    gdf["geometry"] = gpd.GeoSeries(gpd.points_from_xy(xs, ys), crs="EPSG:3857")
     return gdf
