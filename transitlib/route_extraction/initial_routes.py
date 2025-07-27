@@ -19,12 +19,17 @@ def generate_initial_routes(
 ) -> List[List[int]]:
     num_routes = cfg.get("num_initial_routes")
     
-    edges = list(U.keys())
-    weights = list(U.values())
     routes = []
 
     for _ in range(num_routes):
-        u0, v0 = random.choices(edges, weights=weights, k=1)[0]
+        edges = list(U.keys())
+        weights = list(U.values())
+        
+        if sum(weights) == 0:
+            u0, v0 = random.choice(edges)
+        else:
+            u0, v0 = random.choices(edges, weights=weights, k=1)[0]
+
         route = [u0, v0]
         target_len = sample_route_length(min_stops, max_stops)
 
@@ -36,13 +41,16 @@ def generate_initial_routes(
                     if nbr not in route:
                         edge = (node, nbr) if (node, nbr) in U else (nbr, node)
                         candidates.append(edge)
+
             if not candidates:
                 break
+
             weights = [U.get(e, 0.0) for e in candidates]
             if sum(weights) == 0:
                 next_edge = random.choice(candidates)
             else:
                 next_edge = random.choices(candidates, weights=weights, k=1)[0]
+
             u1, v1 = next_edge
             if u1 == start:
                 route.insert(0, v1)
