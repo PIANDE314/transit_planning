@@ -65,7 +65,7 @@ def extract_candidate_stops(
 
     # 5) Pick top clusters
     n_top = max(int(len(avg_footfall)*top_frac), 1)
-    top_clusters = avg_footall.nlargest(n_top).index
+    top_clusters = avg_footfall.nlargest(n_top).index
 
     # 6) Vectorized centroid calculation
     sel = pings_sel[pings_sel['cluster'].isin(top_clusters)].copy()
