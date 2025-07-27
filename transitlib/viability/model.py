@@ -131,9 +131,10 @@ def inject_noise_labels(
     segs = segments_gdf.reset_index(drop=True)
     segs['left'] = segs['segment_id']
     neigh = gpd.sjoin(
-        segs[['left','geometry']],
         segs[['segment_id','geometry']],
-        predicate='intersects', how='inner'
+        segs[['segment_id','geometry']],
+        predicate='intersects', how='inner',
+        lsuffix='_left', rsuffix='_right'
     )
     map_n = neigh.groupby('segment_id_left')['segment_id_right'].apply(set).to_dict()
 
@@ -270,9 +271,8 @@ def run_self_training(
         segs[['segment_id','geometry']],
         segs[['segment_id','geometry']],
         predicate='intersects', how='inner',
-        lsuffix='left', rsuffix='right'
+        lsuffix='_left', rsuffix='_right'
     )
-    print(neigh.columns.tolist())
     map_n = neigh.groupby('segment_id_left')['segment_id_right'].apply(set).to_dict()
 
     # helper to pass the cache in
