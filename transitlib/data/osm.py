@@ -3,6 +3,7 @@ import geopandas as gpd
 from typing import Tuple, Dict
 import networkx as nx
 from transitlib.config import Config
+from pathlib import Path
 
 cfg = Config()
 
@@ -14,8 +15,27 @@ def load_osm_network(
     Download and project the OSM road network for a place.
     """
     network_type = network_type or cfg.get("osm_network_type", "drive")
+    raw_dir = Path(cfg.get("raw_data_dir"))
+    raw_dir.mkdir(parents=True, exist_ok=True)
+
+    # filenames based on place
+    safe = place_name.replace(" ", "_")
+    lat_fn  = raw_dir / f"{safe}_network_latlon.graphml"
+    proj_fn = raw_dir / f"{safe}_network_proj.graphml"
+
+    # load if already saved
+    if lat_fn.exists() and proj_fn.exists():
+       G_latlon = ox.load_graphml(lat_fn)
+        G_proj   = ox.load_graphml(proj_fn)
+        return G_latlon, G_proj
+    
+    # otherwise fetch once and save
     G_latlon = ox.graph_from_place(place_name, network_type=network_type)
     G_proj   = ox.project_graph(G_latlon, to_crs="EPSG:3857")
+
+    # persist for next time
+    ox.save_graphml(G_latlon,  lat_fn)
+    ox.save_graphml(G_proj,   proj_fn)
     return G_latlon, G_proj
 
 
