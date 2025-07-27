@@ -60,7 +60,7 @@ def main():
     pois = load_osm_pois(place)
 
     # 5) Simulate users & OD counts
-    pings_gdf, od_counts = simulate_users(G_latlon)
+    pings_gdf, od_counts = simulate_users(G_latlon, use_path_cache=False)
 
     # 6) Viability: extract segments & compute features
     segs = extract_road_segments(G_proj)
