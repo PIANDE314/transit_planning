@@ -14,7 +14,7 @@ cfg = Config()
 
 def simulate_users(
     G_latlon: nx.Graph,
-    days: Optional[List[datetime]] = None
+    days: Optional[List[datetime]] = None,
     use_path_cache: bool = True
 ) -> Tuple[gpd.GeoDataFrame, Counter]:
     """
