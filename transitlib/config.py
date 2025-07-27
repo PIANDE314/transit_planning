@@ -7,6 +7,8 @@ from typing import Any, Dict, Optional
 # Default parameters, organized by pipeline stage
 # =============================================================================
 DEFAULTS: Dict[str, Any] = {
+    "n_jobs":            4,
+    
     # === Data ingestion (§ 3) ===
     "download_timeout":  10,                # HTTP timeout (s)
     "pop_version":       "v2.1",            # WorldPop version
