@@ -58,8 +58,8 @@ def write_gtfs(
                 "shape_id": shape_id,
                 "shape_pt_lat": G.nodes[stop]["lat"],
                 "shape_pt_lon": G.nodes[stop]["lon"],
-                "shape_pt_sequence": seq,
-                "shape_dist_traveled": round(cum_dist, 1)
+                "shape_pt_sequence": seq - 1,
+                "shape_dist_traveled": round(cum_dist)
             })
             if seq < len(route):
                 cum_dist += nx.shortest_path_length(G, route[seq - 1], route[seq], weight="length")
@@ -105,9 +105,9 @@ def write_gtfs(
     # 5. trips.txt
     trips = [
         {
+            "trip_id": f"T{i}",
             "route_id": f"R{i}",
             "service_id": service_id,
-            "trip_id": f"T{i}",
             "shape_id": f"S{i}"
         }
         for i in range(1, len(optimized_routes) + 1)
