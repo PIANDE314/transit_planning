@@ -4,7 +4,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, roc_auc_score, log_loss, classification_report
-from typing import Tuple, List
+from typing import Tuple, List, Dict
 from joblib import Parallel, delayed
 from transitlib.config import Config
 
