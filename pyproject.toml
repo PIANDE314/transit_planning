@@ -26,6 +26,7 @@ dependencies = [
   "numpy",            # numeric ops
   "scipy",            # stats (accessibility compare)
   "scikit-learn",     # ML self‑training
+  "hdbscan",          # HDBSCAN
   "rasterio",         # raster masking
   "rasterstats",      # raster stats
   "shapely",          # geometries
