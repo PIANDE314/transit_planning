@@ -50,7 +50,7 @@ def build_stop_graph(
     G_simple = _collapse_to_simple(G_latlon, weightAttr="length")
 
     # Step 3: Parallel Dijkstra
-    results = Parallel(n_jobs=cfg.get("n_jobs", 4), backend="threads")(
+    results = Parallel(n_jobs=cfg.get("n_jobs", 4))(
         delayed(_run_sssp)(G_simple, u, unique_nodes) for u in unique_nodes
     )
 
