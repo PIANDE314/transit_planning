@@ -52,12 +52,15 @@ def fetch_worldpop_cog_crop(
     """
     Stream a COG from WorldPop and crop it to a city region (no full download).
     """
-    # Build the /vsigs/ path to the public WorldPop COG (100 m PPP)
+    # Build the HTTP URL to the COG in Google's public bucket
     year = pop_version
-    vsigs_path = (
-        f"/vsigs/gcp-public-data-worldpop/GIS/Population/Global_2000_2020/"
+    base_url = (
+        "https://storage.googleapis.com/"
+        "gcp-public-data-worldpop/GIS/Population/Global_2000_2020/"
         f"{year}/{country_code.upper()}_ppp_{year}.tif"
     )
+    # Wrap in /vsicurl/ so GDAL uses HTTP range-requests
+    vsicurl_path = f"/vsicurl/{base_url}"
 
     # Prepare output
     dest_dir.mkdir(parents=True, exist_ok=True)
@@ -67,23 +70,19 @@ def fetch_worldpop_cog_crop(
     # GeoJSON geometry for masking
     geom_json = [mapping(region_geom)]
 
-    # Tell GDAL not to try any OAuth2 or signed requests—this bucket is public.
-    with rasterio.Env(
-        GDAL_DISABLE_READDIR_ON_OPEN="YES",
-        CPL_GS_NO_SIGN_REQUEST="TRUE"
-    ):
-        # Open the remote COG; Rasterio will use HTTP Range requests
-        with rasterio.open(vsigs_path) as src:
-            # Warp if needed and crop in one go
+    # Avoid directory listing; stream only necessary blocks via HTTP range
+    with rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN="YES"):
+        with rasterio.open(vsicurl_path) as src:
+            # Warp if needed & crop in one go
             with WarpedVRT(src, resampling=Resampling.nearest) as vrt:
                 out_image, out_transform = mask(vrt, geom_json, crop=True)
                 out_meta = vrt.meta.copy()
                 out_meta.update({
-                    "driver":   "GTiff",
-                    "height":   out_image.shape[1],
-                    "width":    out_image.shape[2],
-                    "transform":out_transform,
-                    "count":    out_image.shape[0]
+                    "driver":    "GTiff",
+                    "height":    out_image.shape[1],
+                    "width":     out_image.shape[2],
+                    "transform": out_transform,
+                    "count":     out_image.shape[0]
                 })
 
                 # Write the clipped GeoTIFF
