@@ -4,6 +4,7 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 import osmnx as ox
+from osmnx import geocode_to_gdf
 from transitlib.config import Config
 from transitlib.data.download import fetch_worldpop_cog_crop, fetch_hdx_rwi_csv
 from transitlib.data.osm import load_osm_network, load_osm_pois
@@ -29,14 +30,16 @@ outputs_dir = Path("output"); outputs_dir.mkdir(parents=True, exist_ok=True)
 
 CITY_PARAMS = {
     "maputo": {
-        "place_name":     "Maputo, Mozambique",
-        "country_name":   "Mozambique",
-        "country_code":   "MOZ"
+        "place_name":       "Maputo, Mozambique",
+        "geom_place_name":  "Maputo, Mozambique",
+        "country_name":     "Mozambique",
+        "country_code":     "MOZ"
     },
     "navi_mumbai": {
-        "place_name":     "Navi Mumbai, Maharashtra, India",
-        "country_name":   "India",
-        "country_code":   "IND",
+        "place_name":       "Navi Mumbai, Maharashtra, India",
+        "geom_place_name":  "Navi Mumbai, India",
+        "country_name":     "India",
+        "country_code":     "IND",
         "worldpop_cog_url": (
             "https://data.worldpop.org/GIS/Population/Global_2000_2020/2020/ppp_2020_100m_IND.tif"
         ),
@@ -46,9 +49,10 @@ CITY_PARAMS = {
         )
     },
     "chennai": {
-        "place_name":     "Chennai, Tamil Nadu, India",
-        "country_name":   "India",
-        "country_code":   "IND",
+        "place_name":       "Chennai, Tamil Nadu, India",
+        "geom_place_name":  "Chennai, India",
+        "country_name":     "India",
+        "country_code":     "IND",
         "worldpop_cog_url": (
             "https://data.worldpop.org/GIS/Population/Global_2000_2020/2020/ppp_2020_100m_IND.tif"
         ),
@@ -63,6 +67,7 @@ CITY_PARAMS = {
 def step_download(ctx):
     choice = ctx["download_choice"]
     params = CITY_PARAMS[choice]
+    region_geom = geocode_to_gdf(params["geom_place_name"]).geometry.values[0]
 
     cog_url = params.get("worldpop_cog_url")
     if not cog_url:
@@ -78,7 +83,7 @@ def step_download(ctx):
     out_tif = raw_dir / f"{place_slug}_pop_{cfg.get('pop_version')}.tif"
     wp_tif   = fetch_worldpop_cog_crop(
         cog_url=cog_url,
-        region_geom=ctx["region_geom"],
+        region_geom=region_geom,
         dest_tif=out_tif
     )
 
