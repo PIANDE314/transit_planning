@@ -61,7 +61,11 @@ def build_stop_graph(
     for idx, u in enumerate(unique_nodes, start=1):
         print(f"[NK] {idx}/{len(unique_nodes)}: Dijkstra from node {u}", flush=True)
         ssp = nk.distance.Dijkstra(G_nk, u, False, True)
-        ssp.run()
+        try:
+            ssp.run()
+        except Exception as e:
+            print(f"[ERROR] Dijkstra failed on node {u!r}: {e}", flush=True)
+            raise
         lengths[u] = ssp.getDistances()
     print("After NetworKit", flush=True)
         
