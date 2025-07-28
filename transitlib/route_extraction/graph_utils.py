@@ -53,7 +53,7 @@ def build_stop_graph(
     # now agg.node_id are unique graph nodes, agg.footfall is total
     unique_nodes = agg['node_id'].tolist()
     footfalls   = dict(zip(agg['node_id'], agg[footfall_col]))
-    
+    print("Before NetworKit")
     # 1) Build a NetworKit graph and compute APSP all at once
     G_simple = _collapse_to_simple(G_latlon, weightAttr="length")
     G_nk     = nxadapter.nx2nk(G_simple,  weightAttr="length")
@@ -62,6 +62,7 @@ def build_stop_graph(
         ssp = nk.distance.Dijkstra(G_nk, u, True, True)  # directed=True, useEdgeWeights=True
         ssp.run()
         lengths[u] = ssp.getDistances()
+    print("After NetworKit")
         
     G = nx.Graph()
     for u in unique_nodes:
