@@ -1,9 +1,13 @@
 import requests
+import json
 import zipfile
 from pathlib import Path
 from typing import Union, Optional
 
 import rasterio
+from rasterio.mask import mask
+from rasterio.vrt import WarpedVRT
+from rasterio.enums import Resampling
 from rasterio.windows import from_bounds
 from shapely.geometry import mapping
 from transitlib.config import Config
@@ -41,36 +45,50 @@ def download_file(
 
 
 def fetch_worldpop_cog_crop(
-    cog_url: str,
-    region_geom,
-    dest_tif: Union[str, Path]
+    place_name: str,
+    country_code: str,
+    pop_version: str,
+    dest_dir: Path,
+    region_geom
 ) -> Path:
     """
-    Crop a WorldPop Cloud‑Optimized GeoTIFF (COG) directly over HTTP
-    to the bounds of `region_geom`, writing only that window to `dest_tif`.
+    Stream a COG from WorldPop and crop it to a city region (no full download).
     """
-    dest_tif = Path(dest_tif)
-    dest_tif.parent.mkdir(parents=True, exist_ok=True)
+    year = pop_version
+    base_url = (
+        f"https://data.worldpop.org/GIS/Population/Global_2000_2020/"
+        f"{year}/{country_code.upper()}/{country_code.lower()}_ppp_{year}.tif"
+    )
 
-    # Use vsicurl to stream only the bytes needed
-    vsicurl_path = f"/vsicurl/{cog_url}"
+    # Check if the URL exists
+    if requests.head(base_url).status_code != 200:
+        raise FileNotFoundError(f"WorldPop COG not found at {base_url}")
 
-    with rasterio.open(vsicurl_path) as src:
-        minx, miny, maxx, maxy = region_geom.bounds
-        window = from_bounds(minx, miny, maxx, maxy, src.transform)
-        profile = src.profile.copy()
-        profile.update({
-            "driver": "GTiff",
-            "height": window.height,
-            "width":  window.width,
-            "transform": src.window_transform(window)
-        })
-        data = src.read(1, window=window)
+    # Path to save the small cropped raster
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    out_tif = dest_dir / f"worldpop_{place_name.replace(' ', '_')}.tif"
 
-    with rasterio.open(dest_tif, "w", **profile) as dst:
-        dst.write(data, 1)
+    # Use /vsicurl/ to avoid downloading full file
+    vsicurl_path = f"/vsicurl/{base_url}"
 
-    return dest_tif
+    geom_json = [json.loads(mapping(region_geom).to_json())]
+
+    with rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN="YES"):  # speeds up HTTP reads
+        with rasterio.open(vsicurl_path) as src:
+            with WarpedVRT(src, resampling=Resampling.nearest) as vrt:
+                out_image, out_transform = mask(vrt, geom_json, crop=True)
+                out_meta = vrt.meta.copy()
+                out_meta.update({
+                    "driver": "GTiff",
+                    "height": out_image.shape[1],
+                    "width": out_image.shape[2],
+                    "transform": out_transform,
+                    "count": out_image.shape[0]
+                })
+                with rasterio.open(out_tif, "w", **out_meta) as dst:
+                    dst.write(out_image)
+
+    return out_tif
 
 
 def worldpop_stats(
