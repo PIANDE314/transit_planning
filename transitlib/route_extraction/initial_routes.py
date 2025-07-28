@@ -69,9 +69,9 @@ def generate_initial_routes(
             else:
                 break
         return route
-
-    routes = Parallel(n_jobs=cfg.get("n_jobs", 4))(
+    print("Started")
+    routes = Parallel(n_jobs=cfg.get("n_jobs", 4), backend="threading")(
         delayed(_build_one)(i) for i in range(num_routes)
     )
-
+    print("Finished")
     return routes
