@@ -93,12 +93,15 @@ def optimize_routes(
 
     solution = initial_routes.copy()
     score_trace: List[float] = []
-    score_trace.append(sum(
-        _route_score(r, solution, _Q, _F, _mst, num_nodes, scoring_method)
-        for r in solution
-    ) / len(solution))
     
-    for iter in range(1, max_iters + 1):
+    for iter in range(max_iters):
+        if iter % 1000 == 0:
+            score_trace.append(sum(
+                _route_score(r, solution, _Q, _F, _mst, num_nodes, scoring_method)
+                for r in solution
+            ) / len(solution))
+            print(f"Completed {iter} iterations")
+        
         i = random.randrange(len(solution))
         route = solution[i]
         base = _route_score(route, solution, _Q, _F, _mst, num_nodes, scoring_method)
@@ -149,11 +152,9 @@ def optimize_routes(
         if use_SA:
             T *= a
 
-        if iter % 1000 == 0:
-            score_trace.append(sum(
-                _route_score(r, solution, _Q, _F, _mst, num_nodes, scoring_method)
-                for r in solution
-            ) / len(solution))
-            print(f"Completed {iter} iterations")
+    score_trace.append(sum(
+        _route_score(r, solution, _Q, _F, _mst, num_nodes, scoring_method)
+        for r in solution
+    ) / len(solution))
 
     return solution, score_trace
