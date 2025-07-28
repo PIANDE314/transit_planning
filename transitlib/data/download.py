@@ -4,6 +4,8 @@ import zipfile
 from pathlib import Path
 from typing import Union, Optional
 
+import pystac_client
+import planetary_computer
 import rasterio
 from rasterio.mask import mask
 from rasterio.vrt import WarpedVRT
@@ -54,21 +56,17 @@ def fetch_worldpop_cog_crop(
     """
     Stream a COG from WorldPop and crop it to a city region (no full download).
     """
-    year = pop_version
-   
-    vsis3_path = (
-        f"/vsis3/wopr-public/Global_2000_2020/"
-        f"{year}/{country_code.upper()}_ppp_{year}.tif"
-   )
+    catalog = pystac_client.Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
+    items = catalog.search(
+        collections=["worldpop-100m-pop"],
+        intersects=region_geom,
+        datetime=f"{pop_version}-01-01/{pop_version}-12-31"
+    ).get_items()
+    item = next(items)  # the 2020 WorldPop item for India
+    signed_href = planetary_computer.sign(item.assets["data"].href)
 
-    geom_json = [mapping(region_geom)]
-
-    with rasterio.Env(
-        GDAL_DISABLE_READDIR_ON_OPEN="YES",
-        AWS_NO_SIGN_REQUEST="YES",
-        AWS_REQUEST_PAYER="requester"
-    ):
-        with rasterio.open(vsis3_path) as src:
+    with rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN="YES"):
+        with rasterio.open(signed_href) as src:
             with WarpedVRT(src, resampling=Resampling.nearest) as vrt:
                 out_image, out_transform = mask(vrt, geom_json, crop=True)
                 out_meta = vrt.meta.copy()
@@ -83,7 +81,6 @@ def fetch_worldpop_cog_crop(
                     dst.write(out_image)
 
     return out_tif
-
 
 def worldpop_stats(
     region_geom,
