@@ -56,7 +56,7 @@ def extract_candidate_stops(
     coords = np.vstack((pings_sel.geometry.x.values, pings_sel.geometry.y.values)).T
 
     if use_HDBSCAN:
-        min_cluster_size = cfg.get("hdb_min_cluster_size", min_samples)
+        min_cluster_size = max(2, cfg.get("hdb_min_cluster_size", min_samples))
         clusterer = hdbscan.HDBSCAN(
             min_cluster_size=min_cluster_size,
         )
