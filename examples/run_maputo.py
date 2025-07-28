@@ -27,7 +27,7 @@ cfg      = Config(path=cfg_path)
 raw_dir  = Path(cfg.get("raw_data_dir"));      raw_dir.mkdir(parents=True, exist_ok=True)
 int_dir  = Path(cfg.get("intermediate_dir"));  int_dir.mkdir(parents=True, exist_ok=True)
 gtfs_dir = Path(cfg.get("gtfs_output_dir"));  gtfs_dir.mkdir(parents=True, exist_ok=True)
-outputs_dir = Path("outputs"); outputs_dir.mkdir(parents=True, exist_ok=True)
+outputs_dir = Path("output"); outputs_dir.mkdir(parents=True, exist_ok=True)
 
 # — 1) Stage functions return only their “delta” dict —  
 def step_download(ctx):
@@ -141,8 +141,12 @@ def run_cached(stage_name, choice, ctx):
 
     if stage_name in SKIP_CACHE:
         if stage_name == "gtfs":
-            label_str = "_".join(ctx["labels"])
-            out_dir   = outputs_dir / f"{label_str}_gtfs"
+            labels = ctx.get("labels", [])
+            if labels:
+                dirname = "_".join(labels) + "_gtfs"
+            else:
+                dirname = "gtfs"
+            out_dir   = outputs_dir / dirname
             out_dir.mkdir(parents=True, exist_ok=True)
 
             ctx = {**ctx, "gtfs_out_dir": out_dir}
@@ -164,10 +168,18 @@ def dfs(idx, ctx):
     if idx == len(stages):
         final_results.append(ctx.copy())
         return
+    
     stage = stages[idx]
+    multi = len(stage["choices"]) > 1
+    
     for choice in stage["choices"]:
         new_ctx = ctx.copy()
-        new_ctx["labels"] = ctx.get("labels", []) + [choice]
+        
+        if multi:
+            new_ctx["labels"] = ctx.get("labels", []) + [choice]
+        else:
+            new_ctx["labels"] = ctx.get("labels", []).copy()
+        
         delta = run_cached(stage["name"], choice, new_ctx)
         new_ctx.update(delta)
         dfs(idx + 1, new_ctx)
