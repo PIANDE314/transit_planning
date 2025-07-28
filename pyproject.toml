@@ -21,7 +21,7 @@ dependencies = [
   "requests",         # HTTP downloads
   "osmnx",            # OSM network & POIs
   "geopandas",        # spatial dataframes
-  "networkx",    # graph algorithms
+  "networkx",         # graph algorithms
   "pandas",           # tabular data
   "numpy",            # numeric ops
   "scipy",            # stats (accessibility compare)
@@ -30,6 +30,8 @@ dependencies = [
   "rasterio",         # raster masking
   "rasterstats",      # raster stats
   "shapely",          # geometries
+  "pystac_client",
+  "planetary_computer",
   "click"             # if you later add CLI entrypoints
 ]
 
