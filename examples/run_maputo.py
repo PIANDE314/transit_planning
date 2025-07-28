@@ -70,12 +70,13 @@ def step_stops(ctx):
     return {"stops": stops}
 
 def step_routes(ctx):
+    method = ctx["routes_choice"]
     G_stop = build_stop_graph(
         ctx["G_latlon"], ctx["od_counts"], ctx["stops"], footfall_col="footfall"
     )
     Q, F, M, U = compute_utilities(G_stop)
     init_routes = generate_initial_routes(G_stop, U)
-    optimized   = optimize_routes(G_stop, init_routes, Q, F, set(M.keys()), len(G_stop.nodes))
+    optimized   = optimize_routes(G_stop, init_routes, Q, F, set(M.keys()), len(G_stop.nodes), scoring_method=method)
     return {"G_stop": G_stop, "Q": Q, "F": F, "optimized": optimized}
 
 def step_gtfs(ctx):
@@ -113,7 +114,7 @@ stages = [
     {"name": "simulation", "choices": ["once"], "fn": step_simulation},
     {"name": "viability",  "choices": ["once"], "fn": step_viability},
     {"name": "stops",      "choices": ["once"], "fn": step_stops},
-    {"name": "routes",     "choices": ["once"], "fn": step_routes},
+    {"name": "routes",     "choices": ["linear", "sqrt"], "fn": step_routes},
     {"name": "gtfs",       "choices": ["once"], "fn": step_gtfs},
     {"name": "compare",    "choices": ["once"], "fn": step_compare},
 ]
@@ -177,8 +178,7 @@ def dfs(idx, ctx):
         
         if multi:
             new_ctx["labels"] = ctx.get("labels", []) + [choice]
-        else:
-            new_ctx["labels"] = ctx.get("labels", []).copy()
+        new_ctx[f"{stage['name']}_choice"] = choice
         
         delta = run_cached(stage["name"], choice, new_ctx)
         new_ctx.update(delta)
