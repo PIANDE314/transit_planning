@@ -2,6 +2,7 @@ import networkx as nx
 import osmnx as ox
 from typing import List, Tuple, Dict
 import geopandas as gpd
+from joblib import Parallel, delayed
 from transitlib.config import Config
 
 cfg = Config()
