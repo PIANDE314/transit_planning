@@ -106,7 +106,7 @@ def step_routes_init(ctx):
 
 def step_routes_optimize(ctx):
     method, algo = ctx["routes_opt_choice"].split("_", 1)
-    optimized = optimize_routes(
+    optimized, score_trace = optimize_routes(
         ctx["G_stop"],
         ctx["init_routes"],
         ctx["Q"],
@@ -116,7 +116,7 @@ def step_routes_optimize(ctx):
         scoring_method=method,
         search_algorithm=algo
     )
-    return {"optimized": optimized}
+    return {"optimized": optimized, "score_trace": score_trace}
 
 def step_gtfs(ctx):
     out_dir = ctx["gtfs_out_dir"]
