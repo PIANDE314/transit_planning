@@ -103,11 +103,13 @@ def step_routes_graph(ctx):
     }
 
 def step_routes_init(ctx):
-    init_routes = generate_initial_routes(ctx["G_stop"], ctx["U"])
+    dist = ctx["routes_init_choice"]
+    init_routes = generate_initial_routes(ctx["G_stop"], ctx["U"], node_dist=dist)
     return {"init_routes": init_routes}
 
 def step_routes_optimize(ctx):
     method, algo = ctx["routes_opt_choice"].split("_", 1)
+    dist = ctx["routes_init_choice"]
     optimized, score_trace = optimize_routes(
         ctx["G_stop"],
         ctx["init_routes"],
@@ -115,6 +117,7 @@ def step_routes_optimize(ctx):
         ctx["F"],
         set(ctx["M"].keys()),
         len(ctx["G_stop"].nodes),
+        node_dist=dist
         scoring_method=method,
         search_algorithm=algo
     )
@@ -157,7 +160,7 @@ stages = [
     {"name": "viability_train", "choices": ["cool", "warm"],   "fn": step_viability_train},
     {"name": "stops",           "choices": ["D", "HD"],        "fn": step_stops},
     {"name": "routes_graph",    "choices": ["once"],           "fn": step_routes_graph},
-    {"name": "routes_init",     "choices": ["once"],           "fn": step_routes_init},
+    {"name": "routes_init",     "choices": ["gam", "norm", "unif"], "fn": step_routes_init},
     {"name": "routes_opt",      "choices": ["lin_HC", "sqrt_HC", "lin_SA", "sqrt_SA"], "fn": step_routes_optimize},
     {"name": "gtfs",            "choices": ["once"],           "fn": step_gtfs},
     {"name": "compare",         "choices": ["once"],           "fn": step_compare},
