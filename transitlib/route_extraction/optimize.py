@@ -33,7 +33,7 @@ def score_coverage(solution, total_nodes):
 def route_score(route, solution, Q, F, mst_edges, total_nodes, scoring_method):
     if scoring_method == "sqrt":
         return (
-            WEIGHTS["usage"] * math.sqrt(score_usage(route, Q, F))) +
+            WEIGHTS["usage"] * math.sqrt(score_usage(route, Q, F)) +
             WEIGHTS["feasibility"] * math.sqrt(score_feasibility(route)) +
             WEIGHTS["coverage"] * math.sqrt(score_coverage(solution, total_nodes)) +
             WEIGHTS["directness"] * math.sqrt(score_directness(route, mst_edges))
