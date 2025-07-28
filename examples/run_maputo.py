@@ -27,6 +27,7 @@ cfg      = Config(path=cfg_path)
 raw_dir  = Path(cfg.get("raw_data_dir"));      raw_dir.mkdir(parents=True, exist_ok=True)
 int_dir  = Path(cfg.get("intermediate_dir"));  int_dir.mkdir(parents=True, exist_ok=True)
 gtfs_dir = Path(cfg.get("gtfs_output_dir"));  gtfs_dir.mkdir(parents=True, exist_ok=True)
+outputs_dir = Path("outputs"); outputs_dir.mkdir(parents=True, exist_ok=True)
 
 # — 1) Stage functions return only their “delta” dict —  
 def step_download(ctx):
@@ -78,9 +79,10 @@ def step_routes(ctx):
     return {"G_stop": G_stop, "Q": Q, "F": F, "optimized": optimized}
 
 def step_gtfs(ctx):
+    out_dir = ctx["gtfs_out_dir"]
     write_gtfs(ctx["G_stop"], ctx["optimized"], lambda r: score_usage(r, ctx["Q"], ctx["F"]),
-               output_dir=gtfs_dir)
-    return {"gtfs_dir": gtfs_dir}
+               output_dir=out_dir)
+    return {"gtfs_dir": out_dir}
 
 def step_compare(ctx):
     """operational_gtfs = str(gtfs_dir)
@@ -138,7 +140,14 @@ def run_cached(stage_name, choice, ctx):
     fn = stage["fn"]
 
     if stage_name in SKIP_CACHE:
-        return fn(ctx)
+        if stage_name == "gtfs":
+            label_str = "_".join(ctx["labels"])
+            out_dir   = outputs_dir / f"{label_str}_gtfs"
+            out_dir.mkdir(parents=True, exist_ok=True)
+
+            ctx = {**ctx, "gtfs_out_dir": out_dir}
+            return stage_fn(ctx)
+        return stage_fn(ctx)
 
     cache_file = cache_path(stage_name, choice)
     if cache_file.exists():
@@ -157,13 +166,14 @@ def dfs(idx, ctx):
         return
     stage = stages[idx]
     for choice in stage["choices"]:
-        delta = run_cached(stage["name"], choice, ctx)
         new_ctx = ctx.copy()
+        new_ctx["labels"] = ctx.get("labels", []) + [choice]
+        delta = run_cached(stage["name"], choice, new_ctx)
         new_ctx.update(delta)
         dfs(idx + 1, new_ctx)
 
 if __name__ == "__main__":
-    dfs(0, {})  # start with empty context
+    dfs(0, {"labels": []})  # start with empty context
     print(f"All done!  Generated {len(final_results)} outputs.")
     for out in final_results:
         print("  gtfs_dir:", out.get("gtfs_dir"))
