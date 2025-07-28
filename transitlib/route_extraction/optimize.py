@@ -76,23 +76,28 @@ def optimize_routes(
     F: Dict[Tuple[int,int], float],
     mst_edges: Set[Tuple[int,int]],
     num_nodes: int,
-    scoring_method
+    scoring_method,
+    search_algorithm
 ) -> List[List[int]]:
     """
     Hill‑climb each route by randomly applying insert/delete/swap operators
     and accepting improvements in route_score, for up to max_iters.
     """
     max_iters = cfg.get("opt_max_iters")
+    T = 0.1
+    a  = 0.9999
+    use_SA = (search_algorithm == "SA")
     _route_score = route_score
     _Q = Q; _F = F; _mst = set(mst_edges); _G = G_stop
     nbrs_map = {u: set(_G.neighbors(u)) for u in _G.nodes()}
 
     solution = initial_routes.copy()
-    
-    for iter in range(max_iters):
-        if iter % 1000 == 0:
-            print(f"Completed {iter} iterations")
-        
+    score_trace: List[float] = []
+    source_trace.append(sum(
+        _route_score(r, solution, _Q, _F, _mst, num_nodes, scoring_method)
+        for r in solution
+    )
+    for iter in range(1, max_iters + 1):
         i = random.randrange(len(solution))
         route = solution[i]
         base = _route_score(route, solution, _Q, _F, _mst, num_nodes, scoring_method)
@@ -136,7 +141,18 @@ def optimize_routes(
 
         # evaluate
         score_new = _route_score(new_route, solution, _Q, _F, _mst, num_nodes, scoring_method)
-        if score_new > base:
+        delta = score_new - base
+        if delta > 0 or (use_SA and random.random() < math.exp(delta / T):
             solution[i] = new_route
 
-    return solution
+        if use_SA:
+            T *= a
+
+        if iter % 1000 == 0:
+            score_trace.append(sum(
+                _route_score(r, solution, _Q, _F, _mst, num_nodes, scoring_method)
+                for r in solution
+            )
+            print(f"Completed {iter} iterations")
+
+    return solution, score_trace
