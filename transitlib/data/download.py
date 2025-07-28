@@ -71,7 +71,7 @@ def fetch_worldpop_cog_crop(
     # Use /vsicurl/ to avoid downloading full file
     vsicurl_path = f"/vsicurl/{base_url}"
 
-    geom_json = [json.loads(mapping(region_geom).to_json())]
+    geom_json = [mapping(region_geom)]
 
     with rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN="YES"):  # speeds up HTTP reads
         with rasterio.open(vsicurl_path) as src:
