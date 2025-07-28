@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import geopandas as gpd
+import hdbscan
 from shapely.geometry import Point
 from sklearn.cluster import DBSCAN
 from transitlib.config import Config
@@ -12,6 +13,7 @@ def extract_candidate_stops(
     pings_gdf: gpd.GeoDataFrame,
     pois_gdf: gpd.GeoDataFrame,
     final_label: str = 'final_viable'
+    use_HDBSCAN: bool = False
 ) -> gpd.GeoDataFrame:
     """
     Cluster pings within viable road buffers; extract centroid stops with footfall data.
@@ -52,7 +54,16 @@ def extract_candidate_stops(
 
     # 3) DBSCAN clustering
     coords = np.vstack((pings_sel.geometry.x.values, pings_sel.geometry.y.values)).T
-    clusters = DBSCAN(eps=eps, min_samples=min_samples).fit_predict(coords)
+
+    if use_HDBSCAN:
+        min_cluster_size = cfg.get("hdb_min_cluster_size", min_samples)
+        clusterer = hdbscan.HDBSCAN(
+            min_cluster_size=min_cluster_size,
+        )
+        clusters = clusterer.fit_predict(coords)
+    else:  
+        clusters = DBSCAN(eps=eps, min_samples=min_samples).fit_predict(coords)
+        
     pings_sel['cluster'] = clusters
 
     # 4) Compute average weekday footfall per cluster
