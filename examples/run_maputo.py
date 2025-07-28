@@ -161,7 +161,7 @@ stages = [
     {"name": "viability_train", "choices": ["cool", "warm"],   "fn": step_viability_train},
     {"name": "stops",           "choices": ["D", "HD"],        "fn": step_stops},
     {"name": "routes_graph",    "choices": ["once"],           "fn": step_routes_graph},
-    {"name": "routes_init",     "choices": ["gam", "norm", "unif"], "fn": step_routes_init},
+    {"name": "routes_init",     "choices": ["gam", "norm", "uni"], "fn": step_routes_init},
     {"name": "routes_opt",      "choices": ["lin_HC", "sqrt_HC", "lin_SA", "sqrt_SA"], "fn": step_routes_optimize},
     {"name": "gtfs",            "choices": ["once"],           "fn": step_gtfs},
     {"name": "compare",         "choices": ["once"],           "fn": step_compare},
