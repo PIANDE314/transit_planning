@@ -11,13 +11,14 @@ cfg = Config()
 def write_gtfs(
     G: nx.Graph,
     optimized_routes: List[List[int]],
-    score_usage_fn: Callable[[List[int]], float]
+    score_usage_fn: Callable[[List[int]], float],
+    output_dir
 ) -> None:
     """
     Write a GTFS feed from the optimized routes and stop graph.
     """
-    output_dir = cfg.get("gtfs_output_dir", "gtfs_feed")
-    os.makedirs(output_dir, exist_ok=True)
+    gtfs_output_dir = "outputs/" + output_dir # cfg.get("gtfs_output_dir", "gtfs_feed")
+    os.makedirs(gtfs_output_dir, exist_ok=True)
 
     speed_mps = cfg.get("bus_speed_kmh") * 1000.0 / 3600.0
 
@@ -44,7 +45,7 @@ def write_gtfs(
         }
         for n in G.nodes
     ]
-    pd.DataFrame(stops).to_csv(Path(output_dir) / "stops.txt", index=False)
+    pd.DataFrame(stops).to_csv(Path(gtfs_output_dir) / "stops.txt", index=False)
 
     # 2. stop_times.txt & 3. shapes.txt
     stop_times, shapes = [], []
@@ -86,8 +87,8 @@ def write_gtfs(
                 "stop_sequence": seq
             })
 
-    pd.DataFrame(stop_times).to_csv(Path(output_dir) / "stop_times.txt", index=False)
-    pd.DataFrame(shapes).to_csv(Path(output_dir) / "shapes.txt", index=False)
+    pd.DataFrame(stop_times).to_csv(Path(gtfs_output_dir) / "stop_times.txt", index=False)
+    pd.DataFrame(shapes).to_csv(Path(gtfs_output_dir) / "shapes.txt", index=False)
 
     # 4. frequencies.txt
     usage_scores = [score_usage_fn(r) for r in optimized_routes]
@@ -103,7 +104,7 @@ def write_gtfs(
             "headway_secs": headway_map[rank],
             "exact_times": 0
         })
-    pd.DataFrame(freqs).to_csv(Path(output_dir) / "frequencies.txt", index=False)
+    pd.DataFrame(freqs).to_csv(Path(gtfs_output_dir) / "frequencies.txt", index=False)
 
     # 5. trips.txt
     trips = [
@@ -115,7 +116,7 @@ def write_gtfs(
         }
         for i in range(1, len(optimized_routes) + 1)
     ]
-    pd.DataFrame(trips).to_csv(Path(output_dir) / "trips.txt", index=False)
+    pd.DataFrame(trips).to_csv(Path(gtfs_output_dir) / "trips.txt", index=False)
 
     # 6. routes.txt
     routes = [
@@ -128,7 +129,7 @@ def write_gtfs(
         }
         for i in range(1, len(optimized_routes) + 1)
     ]
-    pd.DataFrame(routes).to_csv(Path(output_dir) / "routes.txt", index=False)
+    pd.DataFrame(routes).to_csv(Path(gtfs_output_dir) / "routes.txt", index=False)
 
     # 7. agency.txt
     agency = [{
@@ -137,7 +138,7 @@ def write_gtfs(
         "agency_url": agency_url,
         "agency_timezone": agency_tz
     }]
-    pd.DataFrame(agency).to_csv(Path(output_dir) / "agency.txt", index=False)
+    pd.DataFrame(agency).to_csv(Path(gtfs_output_dir) / "agency.txt", index=False)
 
     # 8. calendar.txt
     calendar = [{
@@ -148,4 +149,4 @@ def write_gtfs(
         "start_date": start_date,
         "end_date": end_date
     }]
-    pd.DataFrame(calendar).to_csv(Path(output_dir) / "calendar.txt", index=False)
+    pd.DataFrame(calendar).to_csv(Path(gtfs_output_dir) / "calendar.txt", index=False)
