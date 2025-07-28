@@ -65,7 +65,8 @@ def fetch_worldpop_cog_crop(
 
     with rasterio.Env(
         GDAL_DISABLE_READDIR_ON_OPEN="YES",
-        AWS_NO_SIGN_REQUEST="YES"
+        AWS_NO_SIGN_REQUEST="YES",
+        AWS_REQUEST_PAYER="requester"
     ):
         with rasterio.open(vsis3_path) as src:
             with WarpedVRT(src, resampling=Resampling.nearest) as vrt:
