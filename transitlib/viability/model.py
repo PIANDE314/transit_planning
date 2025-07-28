@@ -24,7 +24,7 @@ max_iters       = cfg.get("self_max_iters")
 test_size       = cfg.get("self_test_size")
 runs            = cfg.get("self_runs")
 rs              = cfg.get("random_state")
-trees_per_iter  = cfg.get("rf_trees_per_iter", 5)
+trees_per_iter  = cfg.get("rf_trees_per_iter", 1)
 max_trees       = cfg.get("rf_max_trees", 100)
 
 def initialize_seed_labels(
