@@ -56,14 +56,24 @@ def fetch_worldpop_cog_crop(
     """
     Stream a COG from WorldPop and crop it to a city region (no full download).
     """
-    catalog = pystac_client.Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
-    items = catalog.search(
+    catalog = pystac_client.Client.open(
+        "https://planetarycomputer.microsoft.com/api/stac/v1"
+    )
+    search = catalog.search(
         collections=["worldpop-100m-pop"],
-        intersects=region_geom,
-        datetime=f"{pop_version}-01-01/{pop_version}-12-31"
-    ).get_items()
-    item = next(items)  # the 2020 WorldPop item for India
-    signed_href = planetary_computer.sign(item.assets["data"].href)
+        intersects=mapping(region_geom),               # GeoJSON mapping
+        datetime=f"{pop_version}-01-01/{pop_version}-12-31" 
+    )
+    items_iter = search.items()                        # proper iterator
+    item = next(items_iter, None)
+    if item is None:
+        raise RuntimeError(
+            f"No WorldPop tile found for {pop_version} covering your region"
+        )
+    # Sign the COG URL so rasterio can range‑request it
+    signed_href = planetary_computer.sign(
+        item.assets["data"].href
+    )
 
     with rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN="YES"):
         with rasterio.open(signed_href) as src:
