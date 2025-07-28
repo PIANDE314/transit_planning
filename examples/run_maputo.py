@@ -86,7 +86,7 @@ def step_download(ctx):
         country_code="IND",
         pop_version="2020",
         dest_dir=raw_dir,
-        region_geom=ctx["region_geom"]
+        region_geom=region_geom
     )
 
     manual_hdx = params.get("hdx_manual_url")
