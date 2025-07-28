@@ -79,6 +79,7 @@ def compare_accessibility(
 
     sched_ext, deps_ext = _load_gtfs_schedules(extracted_gtfs)
     sched_op,  deps_op  = _load_gtfs_schedules(operational_gtfs)
+    print(f"[DEBUG] extracted: {len(sched_ext)} trips, operational: {len(sched_op)} trips")
 
     zone_to_stops: Dict[str, Set[str]] = {}
     for _, row in zone_map.iterrows():
@@ -95,6 +96,10 @@ def compare_accessibility(
                     reachable |= reachable_from_cached(o, dep_min, zone_key, max_travel, sched, deps)
                 if reachable & targets:
                     hits += 1
+
+            access_ratio = hits / window
+            print(f"[DEBUG] zone={zone}, hits={hits}, access={access_ratio:.3f}")
+            
             return zone, hits / window
 
         results = Parallel(n_jobs=n_jobs)(
@@ -104,6 +109,8 @@ def compare_accessibility(
 
     acc_ext = _per_zone_access(sched_ext, deps_ext, "ext")
     acc_op  = _per_zone_access(sched_op,  deps_op, "op")
+    print("[DEBUG] acc_op head:\n", acc_op.head())
+    print("[DEBUG] acc_ext head:\n", acc_ext.head())
 
     df = pd.concat([acc_op, acc_ext], axis=1, keys=["operational", "extracted"]).dropna()
     x, y = df["operational"].values, df["extracted"].values
