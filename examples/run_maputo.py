@@ -105,7 +105,7 @@ def step_routes_init(ctx):
     return {"init_routes": init_routes}
 
 def step_routes_optimize(ctx):
-    method = ctx["routes_choice"]
+    method = ctx["routes_opt_choice"]
     optimized = optimize_routes(
         ctx["G_stop"],
         ctx["init_routes"],
