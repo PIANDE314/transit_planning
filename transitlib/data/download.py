@@ -55,26 +55,19 @@ def fetch_worldpop_cog_crop(
     Stream a COG from WorldPop and crop it to a city region (no full download).
     """
     year = pop_version
-    base_url = (
-        f"https://data.worldpop.org/GIS/Population/Global_2000_2020/"
-        f"{year}/{country_code.upper()}/{country_code.lower()}_ppp_{year}.tif"
-    )
-
-    # Check if the URL exists
-    if requests.head(base_url).status_code != 200:
-        raise FileNotFoundError(f"WorldPop COG not found at {base_url}")
-
-    # Path to save the small cropped raster
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    out_tif = dest_dir / f"worldpop_{place_name.replace(' ', '_')}.tif"
-
-    # Use /vsicurl/ to avoid downloading full file
-    vsicurl_path = f"/vsicurl/{base_url}"
+   
+    vsis3_path = (
+        f"/vsis3/wopr-public/Global_2000_2020/"
+        f"{year}/{country_code.upper()}_ppp_{year}.tif"
+   )
 
     geom_json = [mapping(region_geom)]
 
-    with rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN="YES"):  # speeds up HTTP reads
-        with rasterio.open(vsicurl_path) as src:
+    with rasterio.Env(
+        GDAL_DISABLE_READDIR_ON_OPEN="YES",
+        AWS_NO_SIGN_REQUEST="YES"
+    ):
+        with rasterio.open(vsis3_path) as src:
             with WarpedVRT(src, resampling=Resampling.nearest) as vrt:
                 out_image, out_transform = mask(vrt, geom_json, crop=True)
                 out_meta = vrt.meta.copy()
