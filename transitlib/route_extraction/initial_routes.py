@@ -9,12 +9,25 @@ cfg = Config()
 MIN_STOPS = cfg.get("min_stops")
 MAX_STOPS = cfg.get("max_stops")
 
-def sample_route_length(min_stops=MIN_STOPS, max_stops=MAX_STOPS) -> int:
-    return random.randint(min_stops, max_stops)
+def sample_route_length(node_dist="gam", min_stops=MIN_STOPS, max_stops=MAX_STOPS) -> int:
+    rng = np.random.default_rng()  # use numpy's new Generator
+    while True:
+        if node_dist == "gam":
+            val = rng.gamma(shape=3.5, scale=6.0)
+        elif node_dist == "norm":
+            val = rng.normal(loc=21.0, scale=11.0)
+        elif node_dist == "uni":
+            val = rng.uniform(2.0, 40.0)
+        else:
+            raise ValueError(f"Unknown node_dist: {node_dist!r}")
+
+        if val >= 2.0:
+            return int(round(val))
 
 def generate_initial_routes(
     G_stop: nx.Graph,
     U: Dict[Tuple[int,int], float],
+    node_dist: str = "gam"
     min_stops: int = MIN_STOPS,
     max_stops: int = MAX_STOPS
 ) -> List[List[int]]:
@@ -36,7 +49,7 @@ def generate_initial_routes(
             u0, v0 = random.choices(edges, weights=weights, k=1)[0]
 
         route = [u0, v0]
-        target_len = sample_route_length(min_stops, max_stops)
+        target_len = sample_route_length(node_dist)
 
         while len(route) < target_len:
             start, end = route[0], route[-1]
