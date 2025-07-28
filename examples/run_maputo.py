@@ -69,7 +69,8 @@ def step_viability_extract(ctx):
     }
 
 def step_viability_train(ctx):
-    final_labels = run_self_training(ctx["segs"], ctx["feat_mat"], ctx["pois"])
+    start = ctx["viability_train_choice"] == "warm"
+    final_labels = run_self_training(ctx["segs"], ctx["feat_mat"], ctx["pois"], warm_start=mode)
     ctx["segs"]["final_viable"] = (
         ctx["segs_feat"]["segment_id"]
           .map(final_labels)
@@ -152,7 +153,7 @@ stages = [
     {"name": "osm_load",        "choices": ["once"],           "fn": step_osm},
     {"name": "simulation",      "choices": ["once"],           "fn": step_simulation},
     {"name": "viability_ext",   "choices": ["once"],           "fn": step_viability_extract},
-    {"name": "viability_train", "choices": ["once"],           "fn": step_viability_train},
+    {"name": "viability_train", "choices": ["cool", "warm"],   "fn": step_viability_train},
     {"name": "stops",           "choices": ["once"],           "fn": step_stops},
     {"name": "routes_graph",    "choices": ["once"],           "fn": step_routes_graph},
     {"name": "routes_init",     "choices": ["once"],           "fn": step_routes_init},
