@@ -3,38 +3,52 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 from typing import Dict, List, Set, Tuple
-from functools import lru_cache
+from threading import Lock
 from scipy.stats import linregress, pearsonr
 from joblib import Parallel, delayed
 from transitlib.config import Config
 
 cfg = Config()
 
+# -------------------- Global cache for reachability -------------------- #
+_reachable_cache: Dict[Tuple[str, int, str], Set[str]] = {}
+_cache_lock = Lock()
+
+def reachable_from_cached(
+    origin: str,
+    dep_minute: int,
+    zone_key: str,
+    max_travel: int,
+    trip_schedules: Dict[str, List[Tuple[str, int]]],
+    stop_departures: Dict[str, List[Tuple[int, str, int]]]
+) -> Set[str]:
+    cache_key = (origin, dep_minute, zone_key)
+    with _cache_lock:
+        if cache_key in _reachable_cache:
+            return _reachable_cache[cache_key]
+    result = _reachable_from(origin, dep_minute, max_travel, trip_schedules, stop_departures)
+    with _cache_lock:
+        _reachable_cache[cache_key] = result
+    return result
+
+# -------------------- Load GTFS -------------------- #
 def _load_gtfs_schedules(gtfs_dir: str) -> Tuple[
     Dict[str, List[Tuple[str, int]]],
     Dict[str, List[Tuple[int, str, int]]]
 ]:
-    """
-    Parse stop_times.txt into:
-      1) trip_schedules: trip_id → list of (stop_id, arrival_minute)
-      2) stop_departures: stop_id → sorted list of (dep_minute, trip_id, seq_idx)
-    """
     st = pd.read_csv(os.path.join(gtfs_dir, "stop_times.txt"))
-    
-    # Vectorized time conversion to minutes since midnight
+
     hms = st["departure_time"].str.split(":", expand=True).astype(int)
     st["dep_min"] = hms[0] * 60 + hms[1]
 
     hms = st["arrival_time"].str.split(":", expand=True).astype(int)
     st["arr_min"] = hms[0] * 60 + hms[1]
 
-    # 1) trip_schedules
     trip_schedules = {
         trip_id: list(zip(df.sort_values("stop_sequence")["stop_id"], df.sort_values("stop_sequence")["arr_min"]))
         for trip_id, df in st.groupby("trip_id")
     }
 
-    # 2) stop_departures
     stop_departures: Dict[str, List[Tuple[int, str, int]]] = {}
     for trip_id, df in st.groupby("trip_id"):
         df_sorted = df.sort_values("departure_time")
@@ -47,19 +61,14 @@ def _load_gtfs_schedules(gtfs_dir: str) -> Tuple[
 
     return trip_schedules, stop_departures
 
+# -------------------- Accessibility Comparison -------------------- #
 def compare_accessibility(
     extracted_gtfs: str,
     operational_gtfs: str,
     zone_map: pd.DataFrame,
     wealth: pd.Series
-    #phone_density: pd.Series
+  # phone_density: pd.Series
 ) -> Tuple[pd.DataFrame, Dict[str, float], Dict[str, Tuple[float, float]]]:
-    """
-    1) Build GTFS schedules/departure indexes
-    2) For each minute, compute per-zone accessibility fraction
-    3) Compare extracted vs. operational (slope, r, mse)
-    4) Bias vs. wealth
-    """
     start_time = cfg.get("start_time")
     window = cfg.get("access_window_min")
     max_travel = cfg.get("max_travel_min")
@@ -71,17 +80,11 @@ def compare_accessibility(
     sched_ext, deps_ext = _load_gtfs_schedules(extracted_gtfs)
     sched_op,  deps_op  = _load_gtfs_schedules(operational_gtfs)
 
-    # zone → set of stop_ids
     zone_to_stops: Dict[str, Set[str]] = {}
     for _, row in zone_map.iterrows():
         zone_to_stops.setdefault(str(row["zone_id"]), set()).add(str(row["stop_id"]))
 
-    # LRU-cached reachability to reduce recomputation
-    @lru_cache(maxsize=None)
-    def _reachable_from_cached(origin, dep_minute, key):
-        return _reachable_from(origin, dep_minute, max_travel, key[0], key[1])
-
-    def _per_zone_access(sched, deps) -> pd.Series:
+    def _per_zone_access(sched, deps, zone_key: str) -> pd.Series:
         def compute_access(zone: str) -> Tuple[str, float]:
             hits = 0
             targets = zone_to_stops[zone]
@@ -89,7 +92,7 @@ def compare_accessibility(
                 dep_min = base_min + offset
                 reachable = set()
                 for o in targets:
-                    reachable |= _reachable_from_cached(o, dep_min, (sched, deps))
+                    reachable |= reachable_from_cached(o, dep_min, zone_key, max_travel, sched, deps)
                 if reachable & targets:
                     hits += 1
             return zone, hits / window
@@ -99,8 +102,8 @@ def compare_accessibility(
         )
         return pd.Series(dict(results), name="accessibility")
 
-    acc_ext = _per_zone_access(sched_ext, deps_ext)
-    acc_op  = _per_zone_access(sched_op,  deps_op)
+    acc_ext = _per_zone_access(sched_ext, deps_ext, "ext")
+    acc_op  = _per_zone_access(sched_op,  deps_op, "op")
 
     df = pd.concat([acc_op, acc_ext], axis=1, keys=["operational", "extracted"]).dropna()
     x, y = df["operational"].values, df["extracted"].values
@@ -115,10 +118,10 @@ def compare_accessibility(
     }
 
     mse_zone = (acc_ext - acc_op).pow(2).rename("mse")
-    dfb = pd.concat([mse_zone, wealth], axis=1).dropna() # phone_density
+    dfb = pd.concat([mse_zone, wealth], axis=1).dropna()  # phone_density
     bias_stats = {
         "wealth": pearsonr(dfb.iloc[:, 1], dfb["mse"])
-        # "phone":  pearsonr(dfb.iloc[:,2], dfb["mse"])
+      # "phone":  pearsonr(dfb.iloc[:,2], dfb["mse"])
     }
 
     df_acc = pd.concat([
@@ -128,6 +131,7 @@ def compare_accessibility(
 
     return df_acc, comp_stats, bias_stats
 
+# -------------------- Reachability -------------------- #
 def _reachable_from(
     origin: str,
     dep_minute: int,
@@ -135,11 +139,6 @@ def _reachable_from(
     trip_schedules: Dict[str, List[Tuple[str, int]]],
     stop_departures: Dict[str, List[Tuple[int, str, int]]]
 ) -> Set[str]:
-    """
-    BFS over same-stop transfers only.
-    Returns set of stop_ids reachable from `origin` when
-    boarding exactly at `dep_minute`, within `max_travel` minutes.
-    """
     visited: Set[Tuple[str, int]] = set()
     reachable: Set[str] = set()
     queue: List[Tuple[str, int]] = [(origin, dep_minute)]
