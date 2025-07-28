@@ -1,8 +1,11 @@
-import os
-from pathlib import Path
 import requests
 import zipfile
-from typing import Union
+from pathlib import Path
+from typing import Union, Optional
+
+import rasterio
+from rasterio.windows import from_bounds
+from shapely.geometry import mapping
 from transitlib.config import Config
 
 cfg = Config()
@@ -11,10 +14,11 @@ def download_file(
     url: str,
     dest: Union[str, Path],
     overwrite: bool = False,
-    timeout: int = None
+    timeout: Optional[int] = None
 ) -> Path:
     """
-    Download a file with streaming and optional overwrite.
+    Download a file with streaming. If dest exists (and not overwrite), skip.
+    Performs a HEAD first to verify URL if dest missing.
     """
     timeout = timeout or cfg.get("download_timeout", 10)
     dest = Path(dest)
@@ -23,74 +27,126 @@ def download_file(
     if dest.exists() and not overwrite:
         return dest
 
+    # verify URL is reachable
+    head = requests.head(url, timeout=timeout)
+    head.raise_for_status()
+
+    # stream download
     resp = requests.get(url, stream=True, timeout=timeout)
     resp.raise_for_status()
-
     with open(dest, "wb") as f:
         for chunk in resp.iter_content(chunk_size=8192):
             f.write(chunk)
-
     return dest
 
 
-def fetch_worldpop_url(
-    country_code: str,
-    pop_version: str = None
-) -> str:
-    """
-    Build WorldPop download URL.
-    """
-    pop_version = pop_version or cfg.get("pop_version")
-    v_ = pop_version.replace(".", "_")
-    base = f"https://data.worldpop.org/repo/wopr/{country_code}/population/{pop_version}"
-    return f"{base}/{country_code}_population_{v_}_gridded.zip"
-
-
-def extract_worldpop_tif(
-    zip_path: Union[str, Path],
-    dest_dir:   Union[str, Path]
+def fetch_worldpop_cog_crop(
+    cog_url: str,
+    region_geom,
+    dest_tif: Union[str, Path]
 ) -> Path:
     """
-    Unzip and locate the first .tif inside.
+    Crop a WorldPop Cloud‑Optimized GeoTIFF (COG) directly over HTTP
+    to the bounds of `region_geom`, writing only that window to `dest_tif`.
     """
-    zip_path = Path(zip_path)
-    dest_dir = Path(dest_dir)
-    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest_tif = Path(dest_tif)
+    dest_tif.parent.mkdir(parents=True, exist_ok=True)
 
-    with zipfile.ZipFile(zip_path, 'r') as z:
-        for name in z.namelist():
-            if name.lower().endswith('.tif'):
-                z.extract(name, dest_dir)
-                return dest_dir / name
+    # Use vsicurl to stream only the bytes needed
+    vsicurl_path = f"/vsicurl/{cog_url}"
 
-    raise FileNotFoundError(f"No .tif found in {zip_path}")
+    with rasterio.open(vsicurl_path) as src:
+        minx, miny, maxx, maxy = region_geom.bounds
+        window = from_bounds(minx, miny, maxx, maxy, src.transform)
+        profile = src.profile.copy()
+        profile.update({
+            "driver": "GTiff",
+            "height": window.height,
+            "width":  window.width,
+            "transform": src.window_transform(window)
+        })
+        data = src.read(1, window=window)
+
+    with rasterio.open(dest_tif, "w", **profile) as dst:
+        dst.write(data, 1)
+
+    return dest_tif
 
 
-def fetch_hdx_rwi_url(
-    country_name: str,
-    country_code: str
-) -> str:
+def worldpop_stats(
+    region_geom,
+    dataset: str = "wpgppop"
+) -> dict:
     """
-    Search HDX for Relative Wealth Index CSV.
+    Query WorldPop's REST 'stats' API for aggregate population over a GeoJSON region.
+    Returns a dict containing 'sum', 'mean', 'total', etc.
     """
-    search_api = cfg.get("hdx_search_api", "https://data.humdata.org/api/3/action/package_search")
-    show_api   = cfg.get("hdx_show_api",   "https://data.humdata.org/api/3/action/package_show")
-
-    resp = requests.get(search_api, params={"q": f"{country_name} relative wealth index"})
+    url = "https://www.worldpop.org/rest/data/stats"
+    payload = {"dataset": dataset, "geom": mapping(region_geom)}
+    resp = requests.post(url, json=payload, timeout=cfg.get("download_timeout", 10))
     resp.raise_for_status()
-    results = resp.json()["result"]["results"]
-    if not results:
-        raise RuntimeError(f"No HDX RWI dataset for '{country_name}'")
+    return resp.json()
 
-    ds_id = results[0]["id"]
-    resp = requests.get(show_api, params={"id": ds_id})
-    resp.raise_for_status()
-    resources = resp.json()["result"]["resources"]
 
-    suffix = f"{country_code.lower()}_relative_wealth_index.csv"
-    for res in resources:
-        url = res.get("url", "")
-        if url.lower().endswith(suffix):
-            return url
+def fetch_hdx_rwi_csv(
+    *,
+    manual_csv: Union[str, Path] = None,
+    manual_url: str = None,
+    country_name: str = None,
+    country_code: str = None,
+    dest: Union[str, Path]
+) -> Path:
+    """
+    Retrieve the Relative Wealth Index CSV.
+    - If `manual_csv` is supplied, verify and return it.
+    - Else if `manual_url` is given, download that.
+    - Otherwise search HDX for "{country_name} relative wealth index"
+      and pick the first resource ending in "relative_wealth_index.csv".
+    """
+    dest = Path(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
 
-    raise RuntimeError(f"No RWI CSV found ending with '{suffix}'")
+    if manual_csv:
+        mc = Path(manual_csv)
+        if not mc.exists():
+            raise FileNotFoundError(f"Manual RWI CSV not found: {mc}")
+        return mc
+
+    if manual_url:
+        url = manual_url
+    else:
+        cn = country_name or cfg.get("country_name")
+        cc = (country_code or cfg.get("country_code")).lower()
+        search_api = cfg.get("hdx_search_api")
+        show_api   = cfg.get("hdx_show_api")
+
+        # 1) search
+        resp = requests.get(search_api, params={"q": f"{cn} relative wealth index"})
+        resp.raise_for_status()
+        results = resp.json()["result"]["results"]
+        if not results:
+            raise RuntimeError(f"No HDX RWI dataset for '{cn}'")
+        ds_id = results[0]["id"]
+
+        # 2) show
+        resp = requests.get(show_api, params={"id": ds_id})
+        resp.raise_for_status()
+        resources = resp.json()["result"]["resources"]
+
+        # 3) pick resource by suffix or fallback
+        suffix = "relative_wealth_index.csv"
+        candidates = [
+            r["url"] for r in resources
+            if r.get("url","").lower().endswith(suffix)
+        ]
+        if not candidates:
+            candidates = [
+                r["url"] for r in resources
+                if suffix in r.get("url","").lower()
+            ]
+        if not candidates:
+            raise RuntimeError(f"No RWI CSV found for '{cn}'")
+        url = candidates[0]
+
+    # download to dest
+    return download_file(url, dest)
