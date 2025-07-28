@@ -52,30 +52,41 @@ def fetch_worldpop_cog_crop(
     """
     Stream a COG from WorldPop and crop it to a city region (no full download).
     """
+    # Build the /vsigs/ path to the public WorldPop COG (100 m PPP)
     year = pop_version
     vsigs_path = (
         f"/vsigs/gcp-public-data-worldpop/GIS/Population/Global_2000_2020/"
         f"{year}/{country_code.upper()}_ppp_{year}.tif"
     )
 
+    # Prepare output
     dest_dir.mkdir(parents=True, exist_ok=True)
-    out_tif = dest_dir / f"worldpop_{place_name.replace(' ', '_')}.tif"
+    safe_name = place_name.replace(" ", "_").replace(",", "")
+    out_tif = dest_dir / f"worldpop_{safe_name}_{pop_version}.tif"
 
+    # GeoJSON geometry for masking
     geom_json = [mapping(region_geom)]
 
-    with rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN="YES"):
+    # Tell GDAL not to try any OAuth2 or signed requests—this bucket is public.
+    with rasterio.Env(
+        GDAL_DISABLE_READDIR_ON_OPEN="YES",
+        CPL_GS_NO_SIGN_REQUEST="TRUE"
+    ):
+        # Open the remote COG; Rasterio will use HTTP Range requests
         with rasterio.open(vsigs_path) as src:
+            # Warp if needed and crop in one go
             with WarpedVRT(src, resampling=Resampling.nearest) as vrt:
                 out_image, out_transform = mask(vrt, geom_json, crop=True)
                 out_meta = vrt.meta.copy()
                 out_meta.update({
-                    "driver": "GTiff",
-                    "height": out_image.shape[1],
-                    "width": out_image.shape[2],
-                    "transform": out_transform,
-                    "count": out_image.shape[0]
+                    "driver":   "GTiff",
+                    "height":   out_image.shape[1],
+                    "width":    out_image.shape[2],
+                    "transform":out_transform,
+                    "count":    out_image.shape[0]
                 })
 
+                # Write the clipped GeoTIFF
                 with rasterio.open(out_tif, "w", **out_meta) as dst:
                     dst.write(out_image)
 
