@@ -104,14 +104,40 @@ def extract_candidate_stops(
 
     # 9) Combine and dedupe by rounded coords
     all_stops = pd.concat([extracted, osm], ignore_index=True)
+
+    # bucket by rounded coords
     all_stops['xr'] = all_stops.geometry.x.round(3)
     all_stops['yr'] = all_stops.geometry.y.round(3)
-    idx = (
+
+    def collapse(group):
+        if (group['type'] == 'osm').any():
+            geom = group.loc[group['type'] == 'osm', 'geometry'].iloc[0]
+            ext = group.loc[group['type'] == 'extracted', 'footfall']
+            foot = ext.max() if not ext.empty else 0.0
+            return pd.Series({
+                'geometry': geom,
+                'type':       'osm',
+                'footfall':   foot
+            })
+        else:
+            idx = group['footfall'].idxmax()
+            row = group.loc[idx]
+            return pd.Series({
+                'geometry': row.geometry,
+                'type':      row.type,
+                'footfall':  row.footfall
+            })
+
+    collapsed = (
         all_stops
-        .reset_index()   # preserve original row index
-        .groupby(['xr','yr'])['footfall']
-        .idxmax()
+          .groupby(['xr','yr'], as_index=False)
+          .apply(collapse)
     )
-    result = all_stops.loc[idx.values].drop(columns=['xr','yr']).reset_index(drop=True)
+
+    result = gpd.GeoDataFrame(
+        collapsed.drop(columns=['xr','yr']),
+        geometry='geometry',
+        crs=segments_gdf.crs
+    ).reset_index(drop=True)
 
     return result
