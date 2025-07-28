@@ -4,9 +4,6 @@ import zipfile
 from pathlib import Path
 from typing import Union, Optional
 
-import pystac_client
-import planetary_computer
-import ee
 from rasterio.windows import from_bounds
 from shapely.geometry import mapping
 from transitlib.config import Config
@@ -53,26 +50,32 @@ def fetch_worldpop_cog_crop(
     """
     Stream a COG from WorldPop and crop it to a city region (no full download).
     """
-    ee.Initialize(project="earthengine-legacy")
-    # Load the 2020 WorldPop 100 m PPP image
-    wp = ee.ImageCollection("WorldPop/GP/100m/pop") \
-            .filter(ee.Filter.calendarRange(int(pop_version), int(pop_version), 'year')) \
-            .first()
+    year = pop_version
+    vsigs_path = (
+        f"/vsigs/gcp-public-data-worldpop/GIS/Population/Global_2000_2020/"
+        f"{year}/{country_code.upper()}_ppp_{year}.tif"
+    )
 
-    # Clip to our city geometry
-    clipped = wp.clip(region_geom)
-
-    # Build a download URL for exactly that region
-    url = clipped.getDownloadURL({
-        "scale":        100,
-        "crs":          "EPSG:4326",
-        "region":       mapping(region_geom),
-        "format":       "GeoTIFF"
-    })
-
-    # Stream‑download just that GeoTIFF
+    dest_dir.mkdir(parents=True, exist_ok=True)
     out_tif = dest_dir / f"worldpop_{place_name.replace(' ', '_')}.tif"
-    download_file(url, out_tif, overwrite=True)
+
+    geom_json = [mapping(region_geom)]
+
+    with rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN="YES"):
+        with rasterio.open(vsigs_path) as src:
+            with WarpedVRT(src, resampling=Resampling.nearest) as vrt:
+                out_image, out_transform = mask(vrt, geom_json, crop=True)
+                out_meta = vrt.meta.copy()
+                out_meta.update({
+                    "driver": "GTiff",
+                    "height": out_image.shape[1],
+                    "width": out_image.shape[2],
+                    "transform": out_transform,
+                    "count": out_image.shape[0]
+                })
+
+                with rasterio.open(out_tif, "w", **out_meta) as dst:
+                    dst.write(out_image)
 
     return out_tif
 
