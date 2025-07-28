@@ -1,4 +1,5 @@
 import random
+import numpy as np
 from typing import List, Tuple, Dict
 import networkx as nx
 from joblib import Parallel, delayed
