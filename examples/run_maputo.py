@@ -118,7 +118,7 @@ def step_routes_optimize(ctx):
         ctx["F"],
         set(ctx["M"].keys()),
         len(ctx["G_stop"].nodes),
-        node_dist=dist
+        node_dist=dist,
         scoring_method=method,
         search_algorithm=algo
     )
