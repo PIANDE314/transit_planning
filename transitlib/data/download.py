@@ -53,7 +53,7 @@ def fetch_worldpop_cog_crop(
     """
     Stream a COG from WorldPop and crop it to a city region (no full download).
     """
-    ee.Initialize()
+    ee.Initialize(project="earthengine-legacy")
     # Load the 2020 WorldPop 100 m PPP image
     wp = ee.ImageCollection("WorldPop/GP/100m/pop") \
             .filter(ee.Filter.calendarRange(int(pop_version), int(pop_version), 'year')) \
