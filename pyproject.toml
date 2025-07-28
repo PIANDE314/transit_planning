@@ -32,7 +32,7 @@ dependencies = [
   "shapely",          # geometries
   "pystac_client",
   "planetary_computer",
-  "ee",
+  "earthengine-api",
   "click"             # if you later add CLI entrypoints
 ]
 
