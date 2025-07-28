@@ -1,12 +1,16 @@
 import requests
 from pathlib import Path
 from typing import Union, Optional
-
+import ee
+import tempfile
+import os
 import rasterio
+from rasterio.io import MemoryFile
 from rasterio.mask import mask
 from rasterio.vrt import WarpedVRT
 from rasterio.enums import Resampling
-from shapely.geometry import mapping
+from shapely.geometry import box, mapping
+import geopandas as gpd
 
 from transitlib.config import Config
 
@@ -52,44 +56,38 @@ def fetch_worldpop_cog_crop(
     """
     Stream a COG from WorldPop and crop it to a city region (no full download).
     """
-    # Build the HTTP URL to the COG in Google's public bucket
-    year = pop_version
-    base_url = (
-        "https://storage.googleapis.com/"
-        "gcp-public-data-worldpop/GIS/Population/Global_2000_2020/"
-        f"{year}/{country_code.upper()}_ppp_{year}.tif"
-    )
-    # Wrap in /vsicurl/ so GDAL uses HTTP range-requests
-    vsicurl_path = f"/vsicurl/{base_url}"
+    # 1. Define ROI
+    roi_geom = ee.Geometry.Rectangle(list(bounds))
 
-    # Prepare output
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    safe_name = place_name.replace(" ", "_").replace(",", "")
-    out_tif = dest_dir / f"worldpop_{safe_name}_{pop_version}.tif"
+    # 2. Load WorldPop image
+    dataset_id = f"WorldPop/GP/100m/pop/{year}"
+    image = ee.Image(dataset_id).clip(roi_geom)
 
-    # GeoJSON geometry for masking
-    geom_json = [mapping(region_geom)]
+    # 3. Export to GeoTIFF
+    task_config = {
+        "scale": 100,
+        "region": roi_geom,
+        "fileFormat": "GeoTIFF",
+        "formatOptions": {"cloudOptimized": True}
+    }
 
-    # Avoid directory listing; stream only necessary blocks via HTTP range
-    with rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN="YES"):
-        with rasterio.open(vsicurl_path) as src:
-            # Warp if needed & crop in one go
-            with WarpedVRT(src, resampling=Resampling.nearest) as vrt:
-                out_image, out_transform = mask(vrt, geom_json, crop=True)
-                out_meta = vrt.meta.copy()
-                out_meta.update({
-                    "driver":    "GTiff",
-                    "height":    out_image.shape[1],
-                    "width":     out_image.shape[2],
-                    "transform": out_transform,
-                    "count":     out_image.shape[0]
-                })
+    # 4. Export image to Google Drive or local (via workaround)
+    url = image.getDownloadURL(task_config)
 
-                # Write the clipped GeoTIFF
-                with rasterio.open(out_tif, "w", **out_meta) as dst:
-                    dst.write(out_image)
+    # 5. Stream the data into a file
+    import requests
+    response = requests.get(url)
+    response.raise_for_status()
 
-    return out_tif
+    os.makedirs(local_dir, exist_ok=True)
+    out_path = os.path.join(local_dir, filename)
+
+    with MemoryFile(response.content) as memfile:
+        with memfile.open() as dataset:
+            with rasterio.open(out_path, "w", **dataset.profile) as dst:
+                dst.write(dataset.read())
+
+    return out_path
 
 def worldpop_stats(
     region_geom,
