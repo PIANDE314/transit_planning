@@ -137,7 +137,7 @@ def run_cached(stage_name, choice, ctx):
     Otherwise, behave exactly as before.
     """
     stage = next(s for s in stages if s["name"] == stage_name)
-    fn = stage["fn"]
+    stage_fn = stage["fn"]
 
     if stage_name in SKIP_CACHE:
         if stage_name == "gtfs":
