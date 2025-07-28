@@ -1,11 +1,13 @@
 import requests
-import json
-import zipfile
 from pathlib import Path
 from typing import Union, Optional
 
-from rasterio.windows import from_bounds
+import rasterio
+from rasterio.mask import mask
+from rasterio.vrt import WarpedVRT
+from rasterio.enums import Resampling
 from shapely.geometry import mapping
+
 from transitlib.config import Config
 
 cfg = Config()
