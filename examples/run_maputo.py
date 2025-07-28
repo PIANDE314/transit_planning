@@ -52,16 +52,31 @@ def step_simulation(ctx):
     pings_gdf, od_counts = simulate_users(ctx["G_latlon"], use_path_cache=False)
     return {"pings_gdf": pings_gdf, "od_counts": od_counts}
 
-def step_viability(ctx):
+def step_viability_extract(ctx):
     segs = extract_road_segments(ctx["G_proj"])
-    segs_feat, feat_mat, _ = compute_segment_features(
-        segs, str(ctx["wp_tif"]), ctx["pois"], ctx["wealth_gdf"], ctx["pings_gdf"]
+    segs_feat, feat_mat, scaler = compute_segment_features(
+        segs,
+        str(ctx["wp_tif"]),
+        ctx["pois"],
+        ctx["wealth_gdf"],
+        ctx["pings_gdf"],
     )
-    final_labels = run_self_training(segs, feat_mat, ctx["pois"])
-    segs["final_viable"] = (
-        segs_feat["segment_id"].map(final_labels).fillna(0).astype(int)
+    return {
+        "segs": segs,
+        "segs_feat": segs_feat,
+        "feat_mat": feat_mat,
+        "scaler": scaler,
+    }
+
+def step_viability_train(ctx):
+    final_labels = run_self_training(ctx["segs"], ctx["feat_mat"], ctx["pois"])
+    ctx["segs"]["final_viable"] = (
+        ctx["segs_feat"]["segment_id"]
+          .map(final_labels)
+          .fillna(0)
+          .astype(int)
     )
-    return {"segs": segs}
+    return {"segs": ctx["segs"]}
 
 def step_stops(ctx):
     stops = extract_candidate_stops(
@@ -69,15 +84,38 @@ def step_stops(ctx):
     )
     return {"stops": stops}
 
-def step_routes(ctx):
-    method = ctx["routes_choice"]
+def step_routes_graph(ctx):
     G_stop = build_stop_graph(
-        ctx["G_latlon"], ctx["od_counts"], ctx["stops"], footfall_col="footfall"
+        ctx["G_latlon"],
+        ctx["od_counts"],
+        ctx["stops"],
+        footfall_col="footfall",
     )
     Q, F, M, U = compute_utilities(G_stop)
-    init_routes = generate_initial_routes(G_stop, U)
-    optimized   = optimize_routes(G_stop, init_routes, Q, F, set(M.keys()), len(G_stop.nodes), scoring_method=method)
-    return {"G_stop": G_stop, "Q": Q, "F": F, "optimized": optimized}
+    return {
+        "G_stop": G_stop,
+        "Q": Q,
+        "F": F,
+        "M": M,
+        "U": U,
+    }
+
+def step_routes_init(ctx):
+    init_routes = generate_initial_routes(ctx["G_stop"], ctx["U"])
+    return {"init_routes": init_routes}
+
+def step_routes_optimize(ctx):
+    method = ctx["routes_choice"]
+    optimized = optimize_routes(
+        ctx["G_stop"],
+        ctx["init_routes"],
+        ctx["Q"],
+        ctx["F"],
+        set(ctx["M"].keys()),
+        len(ctx["G_stop"].nodes),
+        scoring_method=method,
+    )
+    return {"optimized": optimized}
 
 def step_gtfs(ctx):
     out_dir = ctx["gtfs_out_dir"]
@@ -109,14 +147,17 @@ def step_compare(ctx):
 
 # — 2) Stage definitions (all single‐choice for now) —  
 stages = [
-    {"name": "download",   "choices": ["once"], "fn": step_download},
-    {"name": "osm_load",   "choices": ["once"], "fn": step_osm},
-    {"name": "simulation", "choices": ["once"], "fn": step_simulation},
-    {"name": "viability",  "choices": ["once"], "fn": step_viability},
-    {"name": "stops",      "choices": ["once"], "fn": step_stops},
-    {"name": "routes",     "choices": ["linear", "sqrt"], "fn": step_routes},
-    {"name": "gtfs",       "choices": ["once"], "fn": step_gtfs},
-    {"name": "compare",    "choices": ["once"], "fn": step_compare},
+    {"name": "download",        "choices": ["once"],           "fn": step_download},
+    {"name": "osm_load",        "choices": ["once"],           "fn": step_osm},
+    {"name": "simulation",      "choices": ["once"],           "fn": step_simulation},
+    {"name": "viability_ext",   "choices": ["once"],           "fn": step_viability_extract},
+    {"name": "viability_train", "choices": ["once"],           "fn": step_viability_train},
+    {"name": "stops",           "choices": ["once"],           "fn": step_stops},
+    {"name": "routes_graph",    "choices": ["once"],           "fn": step_routes_graph},
+    {"name": "routes_init",     "choices": ["once"],           "fn": step_routes_init},
+    {"name": "routes_opt",      "choices": ["linear", "sqrt"], "fn": step_routes_optimize},
+    {"name": "gtfs",            "choices": ["once"],           "fn": step_gtfs},
+    {"name": "compare",         "choices": ["once"],           "fn": step_compare},
 ]
 
 SKIP_CACHE = {"download", "osm_load", "gtfs", "compare"}
