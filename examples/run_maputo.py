@@ -105,7 +105,7 @@ def step_routes_init(ctx):
     return {"init_routes": init_routes}
 
 def step_routes_optimize(ctx):
-    method = ctx["routes_opt_choice"]
+    method, algo = ctx["routes_opt_choice"].split("_", 1)
     optimized = optimize_routes(
         ctx["G_stop"],
         ctx["init_routes"],
@@ -114,6 +114,7 @@ def step_routes_optimize(ctx):
         set(ctx["M"].keys()),
         len(ctx["G_stop"].nodes),
         scoring_method=method,
+        search_algorithm=algo
     )
     return {"optimized": optimized}
 
@@ -155,7 +156,7 @@ stages = [
     {"name": "stops",           "choices": ["once"],           "fn": step_stops},
     {"name": "routes_graph",    "choices": ["once"],           "fn": step_routes_graph},
     {"name": "routes_init",     "choices": ["once"],           "fn": step_routes_init},
-    {"name": "routes_opt",      "choices": ["linear", "sqrt"], "fn": step_routes_optimize},
+    {"name": "routes_opt",      "choices": ["lin_HC", "sqrt_HC", "lin_SA", "sqrt_SA"], "fn": step_routes_optimize},
     {"name": "gtfs",            "choices": ["once"],           "fn": step_gtfs},
     {"name": "compare",         "choices": ["once"],           "fn": step_compare},
 ]
