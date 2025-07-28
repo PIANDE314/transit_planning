@@ -17,7 +17,7 @@ def write_gtfs(
     """
     Write a GTFS feed from the optimized routes and stop graph.
     """
-    gtfs_output_dir = "outputs/" + output_dir # cfg.get("gtfs_output_dir", "gtfs_feed")
+    gtfs_output_dir = output_dir # cfg.get("gtfs_output_dir", "gtfs_feed")
     os.makedirs(gtfs_output_dir, exist_ok=True)
 
     speed_mps = cfg.get("bus_speed_kmh") * 1000.0 / 3600.0
