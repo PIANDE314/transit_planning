@@ -3,6 +3,7 @@ from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
+import osmnx as ox
 from transitlib.config import Config
 from transitlib.data.download import (
     download_file, fetch_worldpop_url, extract_worldpop_tif,
@@ -29,24 +30,107 @@ int_dir  = Path(cfg.get("intermediate_dir"));  int_dir.mkdir(parents=True, exist
 gtfs_dir = Path(cfg.get("gtfs_output_dir"));  gtfs_dir.mkdir(parents=True, exist_ok=True)
 outputs_dir = Path("output"); outputs_dir.mkdir(parents=True, exist_ok=True)
 
+CITY_PARAMS = {
+    "maputo": {
+        "place_name":     "Maputo, Mozambique",
+        "country_name":   "Mozambique",
+        "country_code":   "MOZ"
+    },
+    "navi_mumbai": {
+        "place_name":     "Navi Mumbai, Maharashtra, India",
+        "country_name":   "India",
+        "country_code":   "IND",
+        "worldpop_cog_url": (
+            "https://data.worldpop.org/GIS/Population/Global_2000_2020/2020/ppp_2020_100m_IND.tif"
+        ),
+        "hdx_manual_url": (
+            "https://data.humdata.org/dataset/ind-pak-relative-wealth-index"
+            "/resource/India%20and%20Pakistan_relative_wealth_index.csv"
+        )
+    },
+    "chennai": {
+        "place_name":     "Chennai, Tamil Nadu, India",
+        "country_name":   "India",
+        "country_code":   "IND",
+        "worldpop_cog_url": (
+            "https://data.worldpop.org/GIS/Population/Global_2000_2020/2020/ppp_2020_100m_IND.tif"
+        ),
+        "hdx_manual_url": (
+            "https://data.humdata.org/dataset/ind-pak-relative-wealth-index"
+            "/resource/India%20and%20Pakistan_relative_wealth_index.csv"
+        )
+    }
+}
+
 # — 1) Stage functions return only their “delta” dict —  
 def step_download(ctx):
-    wp_url  = fetch_worldpop_url(cfg.get("country_code"))
-    wp_zip  = download_file(wp_url, raw_dir / "worldpop.zip", overwrite=False)
-    wp_tif  = extract_worldpop_tif(wp_zip, raw_dir)
+    choice = ctx["download_choice"]
+    params = CITY_PARAMS[choice]
 
-    rwi_url    = fetch_hdx_rwi_url(cfg.get("country_name"), cfg.get("country_code"))
-    rwi_csv    = download_file(rwi_url, raw_dir / "rwi.csv", overwrite=False)
+    cog_url = params.get("worldpop_cog_url")
+    if not cog_url:
+        cc = params["country_code"]
+        pv = cfg.get("pop_version")
+        v_ = pv.replace(".", "_")
+        cog_url = (
+            f"https://data.worldpop.org/repo/wopr/{cc}/population/{pv}/"
+            f"{cc}_population_{v_}_gridded.tif"
+        )
+
+    place_slug = choice
+    out_tif = raw_dir / f"{place_slug}_pop_{cfg.get('pop_version')}.tif"
+    wp_tif   = fetch_worldpop_cog_crop(
+        cog_url=cog_url,
+        region_geom=ctx["region_geom"],
+        dest_tif=out_tif
+    )
+
+    manual_hdx = params.get("hdx_manual_url")
+    rwi_dest   = raw_dir / f"{place_slug}_rwi.csv"
+    rwi_csv    = fetch_hdx_rwi_csv(
+        manual_url=manual_hdx,
+        country_name=params["country_name"],
+        country_code=params["country_code"],
+        dest=rwi_dest
+    )
+
     wealth_df  = load_rwi_csv(str(rwi_csv))
     wealth_gdf = points_to_gdf(wealth_df)
 
-    return {"wp_tif": wp_tif, "wealth_gdf": wealth_gdf}
+    return {
+        "wp_tif":     wp_tif,
+        "wealth_gdf": wealth_gdf
+    }
 
 def step_osm(ctx):
-    place = cfg.get("place_name")
-    G_latlon, G_proj = load_osm_network(place)
-    pois             = load_osm_pois(place)
-    return {"G_latlon": G_latlon, "G_proj": G_proj, "pois": pois}
+    choice = ctx["download_choice"]
+    params = CITY_PARAMS[choice]
+    place = params["place_name"]
+
+    G_latlon, G_proj = load_osm_network(
+        place_name=place,
+        raw_dir=raw_dir
+    )
+
+    pois = load_osm_pois(
+        place_name=place,
+        raw_dir=raw_dir
+    )
+
+    try:
+        gdf = ox.geocode_to_gdf(place)
+        if gdf.empty:
+            raise ValueError("empty result")
+        region_geom = gdf.unary_union
+    except Exception as e:
+        raise RuntimeError(f"Could not geocode '{place}': {e}")
+
+    return {
+        "G_latlon":   G_latlon,
+        "G_proj":     G_proj,
+        "pois":       pois,
+        "region_geom": region_geom
+    }
 
 def step_simulation(ctx):
     isNoisy = (ctx["simulation_choice"] == "noisy")
@@ -154,7 +238,7 @@ def step_compare(ctx):
 
 # — 2) Stage definitions (all single‐choice for now) —  
 stages = [
-    {"name": "download",        "choices": ["once"],           "fn": step_download},
+    {"name": "download",        "choices": ["navi_mumbai", "chennai", "maputo"], "fn": step_download},
     {"name": "osm_load",        "choices": ["once"],           "fn": step_osm},
     {"name": "simulation",      "choices": ["clean", "noisy"], "fn": step_simulation},
     {"name": "viability_ext",   "choices": ["once"],           "fn": step_viability_extract},
