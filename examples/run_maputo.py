@@ -80,8 +80,9 @@ def step_viability_train(ctx):
     return {"segs": ctx["segs"]}
 
 def step_stops(ctx):
+    algo = ctx["stops_choice"] == "HD"
     stops = extract_candidate_stops(
-        ctx["segs"], ctx["pings_gdf"], ctx["pois"], final_label="final_viable"
+        ctx["segs"], ctx["pings_gdf"], ctx["pois"], final_label="final_viable", use_HDBSCAN=algo
     )
     return {"stops": stops}
 
@@ -154,7 +155,7 @@ stages = [
     {"name": "simulation",      "choices": ["once"],           "fn": step_simulation},
     {"name": "viability_ext",   "choices": ["once"],           "fn": step_viability_extract},
     {"name": "viability_train", "choices": ["cool", "warm"],   "fn": step_viability_train},
-    {"name": "stops",           "choices": ["once"],           "fn": step_stops},
+    {"name": "stops",           "choices": ["D", "HD"],        "fn": step_stops},
     {"name": "routes_graph",    "choices": ["once"],           "fn": step_routes_graph},
     {"name": "routes_init",     "choices": ["once"],           "fn": step_routes_init},
     {"name": "routes_opt",      "choices": ["lin_HC", "sqrt_HC", "lin_SA", "sqrt_SA"], "fn": step_routes_optimize},
