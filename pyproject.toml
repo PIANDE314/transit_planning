@@ -32,6 +32,7 @@ dependencies = [
   "shapely",          # geometries
   "pystac_client",
   "planetary_computer",
+  "ee",
   "click"             # if you later add CLI entrypoints
 ]
 
