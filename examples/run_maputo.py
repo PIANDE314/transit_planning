@@ -5,10 +5,7 @@ import geopandas as gpd
 import pandas as pd
 import osmnx as ox
 from transitlib.config import Config
-from transitlib.data.download import (
-    download_file, fetch_worldpop_cog_crop, extract_worldpop_tif,
-    fetch_hdx_rwi_url
-)
+from transitlib.data.download import fetch_worldpop_cog_crop, fetch_hdx_rwi_csv
 from transitlib.data.osm import load_osm_network, load_osm_pois
 from transitlib.data.preprocess import load_rwi_csv, points_to_gdf
 from transitlib.simulation.users import simulate_users
