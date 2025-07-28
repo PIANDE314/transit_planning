@@ -2,6 +2,7 @@ import random
 from typing import List, Tuple, Set, Dict
 import numpy as np
 import networkx as nx
+import math
 from transitlib.config import Config
 
 cfg = Config()
@@ -29,13 +30,21 @@ def score_coverage(solution, total_nodes):
     covered = {n for route in solution for n in route}
     return len(covered) / total_nodes if total_nodes else 0.0
 
-def route_score(route, solution, Q, F, mst_edges, total_nodes):
-    return (
-        WEIGHTS["usage"] * score_usage(route, Q, F) +
-        WEIGHTS["feasibility"] * score_feasibility(route) +
-        WEIGHTS["coverage"] * score_coverage(solution, total_nodes) +
-        WEIGHTS["directness"] * score_directness(route, mst_edges)
-    )
+def route_score(route, solution, Q, F, mst_edges, total_nodes, scoring_method):
+    if scoring_method == "sqrt":
+        return (
+            WEIGHTS["usage"] * math.sqrt(score_usage(route, Q, F))) +
+            WEIGHTS["feasibility"] * math.sqrt(score_feasibility(route)) +
+            WEIGHTS["coverage"] * math.sqrt(score_coverage(solution, total_nodes)) +
+            WEIGHTS["directness"] * math.sqrt(score_directness(route, mst_edges))
+        )
+    else:
+        return (
+            WEIGHTS["usage"] * score_usage(route, Q, F) +
+            WEIGHTS["feasibility"] * score_feasibility(route) +
+            WEIGHTS["coverage"] * score_coverage(solution, total_nodes) +
+            WEIGHTS["directness"] * score_directness(route, mst_edges)
+        )
 
 # Operators
 def insert_node(
@@ -66,7 +75,8 @@ def optimize_routes(
     Q: Dict[Tuple[int,int], float],
     F: Dict[Tuple[int,int], float],
     mst_edges: Set[Tuple[int,int]],
-    num_nodes: int
+    num_nodes: int,
+    scoring_method
 ) -> List[List[int]]:
     """
     Hill‑climb each route by randomly applying insert/delete/swap operators
@@ -85,7 +95,7 @@ def optimize_routes(
         
         i = random.randrange(len(solution))
         route = solution[i]
-        base = _route_score(route, solution, _Q, _F, _mst, num_nodes)
+        base = _route_score(route, solution, _Q, _F, _mst, num_nodes, scoring_method)
 
         # pick operator
         op = random.choice(["insert", "delete", "swap"])
@@ -125,7 +135,7 @@ def optimize_routes(
             new_route = swap_node(route, idx, node)
 
         # evaluate
-        score_new = _route_score(new_route, solution, _Q, _F, _mst, num_nodes)
+        score_new = _route_score(new_route, solution, _Q, _F, _mst, num_nodes, scoring_method)
         if score_new > base:
             solution[i] = new_route
 
