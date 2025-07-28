@@ -27,7 +27,7 @@ def sample_route_length(node_dist="gam", min_stops=MIN_STOPS, max_stops=MAX_STOP
 def generate_initial_routes(
     G_stop: nx.Graph,
     U: Dict[Tuple[int,int], float],
-    node_dist: str = "gam"
+    node_dist: str = "gam",
     min_stops: int = MIN_STOPS,
     max_stops: int = MAX_STOPS
 ) -> List[List[int]]:
