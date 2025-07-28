@@ -49,7 +49,8 @@ def step_osm(ctx):
     return {"G_latlon": G_latlon, "G_proj": G_proj, "pois": pois}
 
 def step_simulation(ctx):
-    pings_gdf, od_counts = simulate_users(ctx["G_latlon"], use_path_cache=False)
+    isNoisy = (ctx["simulation_choice"] == "noisy")
+    pings_gdf, od_counts = simulate_users(ctx["G_latlon"], use_path_cache=False, noise=isNoisy)
     return {"pings_gdf": pings_gdf, "od_counts": od_counts}
 
 def step_viability_extract(ctx):
@@ -155,7 +156,7 @@ def step_compare(ctx):
 stages = [
     {"name": "download",        "choices": ["once"],           "fn": step_download},
     {"name": "osm_load",        "choices": ["once"],           "fn": step_osm},
-    {"name": "simulation",      "choices": ["once"],           "fn": step_simulation},
+    {"name": "simulation",      "choices": ["clean", "noisy"], "fn": step_simulation},
     {"name": "viability_ext",   "choices": ["once"],           "fn": step_viability_extract},
     {"name": "viability_train", "choices": ["cool", "warm"],   "fn": step_viability_train},
     {"name": "stops",           "choices": ["D", "HD"],        "fn": step_stops},
