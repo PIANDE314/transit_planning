@@ -81,10 +81,12 @@ def step_download(ctx):
 
     place_slug = choice
     out_tif = raw_dir / f"{place_slug}_pop_{cfg.get('pop_version')}.tif"
-    wp_tif   = fetch_worldpop_cog_crop(
-        cog_url=cog_url,
-        region_geom=region_geom,
-        dest_tif=out_tif
+    wp_tif = fetch_worldpop_cog_crop(
+        place_name=ctx["download_choice"],
+        country_code="IND",
+        pop_version="2020",
+        dest_dir=raw_dir,
+        region_geom=ctx["region_geom"]
     )
 
     manual_hdx = params.get("hdx_manual_url")
