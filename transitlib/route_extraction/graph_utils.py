@@ -2,8 +2,6 @@ import networkx as nx
 import osmnx as ox
 from typing import List, Tuple, Dict
 import geopandas as gpd
-import networkit as nk
-from networkit import nxadapter
 from transitlib.config import Config
 
 cfg = Config()
@@ -14,23 +12,22 @@ def _collapse_to_simple(G_multi: nx.MultiDiGraph, weightAttr="length"):
         length = data.get(weightAttr)
         if length is None:
             raise KeyError(f"Edge {(u,v)} missing {weightAttr}")
-        # if edge already exists, keep the minimum length
         if G.has_edge(u, v):
             G[u][v][weightAttr] = min(G[u][v][weightAttr], length)
         else:
             G.add_edge(u, v, **{weightAttr: length})
-    # copy node attributes too
     for n, attr in G_multi.nodes(data=True):
         G.nodes[n].update(attr)
     return G
 
 def map_stops_to_nodes(G_latlon: nx.Graph, stops: gpd.GeoDataFrame) -> List[int]:
-    """
-    Snap each stop to its nearest OSM node in the geographic (lat/lon) graph.
-    """
     stops_ll = stops.to_crs(G_latlon.graph['crs'])
     xs, ys = stops_ll.geometry.x.values, stops_ll.geometry.y.values
     return ox.distance.nearest_nodes(G_latlon, xs, ys)
+
+def _run_sssp(G: nx.Graph, source: int, targets: List[int], weight: str = "length") -> Tuple[int, Dict[int, float]]:
+    dist = nx.single_source_dijkstra_path_length(G, source, weight=weight)
+    return source, {t: dist[t] for t in targets if t in dist and t != source}
 
 def build_stop_graph(
     G_latlon: nx.Graph,
@@ -38,50 +35,43 @@ def build_stop_graph(
     stops: gpd.GeoDataFrame,
     footfall_col: str
 ) -> nx.Graph:
-    # 1) Snap stops → nearest OSM nodes
+    # Step 1: Snap stops → nearest OSM nodes
     node_ids = map_stops_to_nodes(G_latlon, stops)
     stops = stops.copy()
     stops['node_id'] = node_ids
 
-    # 2) Collapse duplicates by summing footfall
-    agg = (
-        stops
-        .groupby('node_id')[footfall_col]
-        .sum()
-        .reset_index()
-    )
-    # now agg.node_id are unique graph nodes, agg.footfall is total
+    # Step 2: Collapse duplicates by summing footfall
+    agg = stops.groupby('node_id')[footfall_col].sum().reset_index()
     unique_nodes = agg['node_id'].tolist()
-    footfalls   = dict(zip(agg['node_id'], agg[footfall_col]))
-    print("Before NetworKit", flush=True)
-    # 1) Build a NetworKit graph and compute APSP all at once
+    footfalls = dict(zip(agg['node_id'], agg[footfall_col]))
+
+    print(f"[INFO] Running Dijkstra for {len(unique_nodes)} nodes...", flush=True)
     G_simple = _collapse_to_simple(G_latlon, weightAttr="length")
-    G_nk     = nxadapter.nx2nk(G_simple,  weightAttr="length")
-    lengths = {}
-    for idx, u in enumerate(unique_nodes, start=1):
-        print(f"[NK] {idx}/{len(unique_nodes)}: Dijkstra from node {u}", flush=True)
-        ssp = nk.distance.Dijkstra(G_nk, u, False, True)
-        try:
-            ssp.run()
-        except Exception as e:
-            print(f"[ERROR] Dijkstra failed on node {u!r}: {e}", flush=True)
-            raise
-        lengths[u] = ssp.getDistances()
-    print("After NetworKit", flush=True)
-        
+
+    # Step 3: Parallel Dijkstra
+    results = Parallel(n_jobs=cfg.get("n_jobs", 4), backend="threads")(
+        delayed(_run_sssp)(G_simple, u, unique_nodes) for u in unique_nodes
+    )
+
+    # Step 4: Aggregate pairwise distances
+    lengths = {u: dists for u, dists in results}
+
+    print(f"[INFO] Finished computing all pairwise distances.", flush=True)
+
+    # Step 5: Build the simplified graph
     G = nx.Graph()
     for u in unique_nodes:
-        G.add_node(u, footfall=float(footfalls[u]),
-                      lat=G_latlon.nodes[u]['y'],
-                      lon=G_latlon.nodes[u]['x'])
+        G.add_node(u,
+                   footfall=float(footfalls[u]),
+                   lat=G_latlon.nodes[u]['y'],
+                   lon=G_latlon.nodes[u]['x'])
 
-    # 2) Now add edges by simple lookup
     for i, u in enumerate(unique_nodes):
         for v in unique_nodes[i+1:]:
-            d = lengths[u][v] if v in lengths[u] else None
+            d = lengths[u].get(v)
             if d is None or d == 0:
                 continue
-            demand = od_counts.get((u,v),0) + od_counts.get((v,u),0)
+            demand = od_counts.get((u, v), 0) + od_counts.get((v, u), 0)
             G.add_edge(u, v, length=d, demand=int(demand))
 
     return G
