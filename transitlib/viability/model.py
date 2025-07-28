@@ -159,7 +159,8 @@ def run_self_training_single_pass(
     segments_gdf: gpd.GeoDataFrame,
     feature_matrix: pd.DataFrame,
     poi_gdf: gpd.GeoDataFrame,
-    map_n: Dict[int, set] = None
+    map_n: Dict[int, set] = None,
+    warm_start: bool
 ) -> pd.Series:
     """
     One pass of self‑training with a warm‑started RandomForest.
@@ -178,72 +179,62 @@ def run_self_training_single_pass(
         )
         map_n = neigh.groupby('left')['segment_id'].apply(set).to_dict()
 
-    # 1) Seed labeling
     seeds = initialize_seed_labels(segments_gdf, feature_matrix, poi_gdf)
     seeds = expand_negatives_with_logreg(seeds, feature_matrix)
 
-    # 2) Pre-split train/validation once
-    X_all = seeds.drop(columns='label')
-    y_all = seeds['label']
-    X_tr, X_val, y_tr, y_val = train_test_split(
-        X_all, y_all,
-        test_size=test_size,
-        stratify=y_all,
-        random_state=rs
-    )
-
-    # 3) Create a warm‑start RF that starts with zero trees
-    classes = np.array([0, 1])
-    weights = compute_class_weight('balanced', classes=classes, y=y_tr)
-    class_weights = dict(zip(classes, weights))
-    
-    rf = RandomForestClassifier(
-        n_estimators=0,
-        warm_start=True,
-        class_weight=class_weights,
-        random_state=rs,
-        n_jobs=-1
-    )
-    trees_per_iter = cfg.get("rf_trees_per_iter", 10)
-
-    # 4) Self‑training loop
-    for it in range(1, max_iters + 1):
-        # grow the forest
-        rf.n_estimators += trees_per_iter
-        rf.fit(X_tr, y_tr)
-
-        # OPTIONAL: print validation metrics
-        y_pred  = rf.predict(X_val)
-        y_proba = rf.predict_proba(X_val)[:, 1]
-        print(
-            f"[Iter {it}] Acc: {accuracy_score(y_val, y_pred):.3f}, "
-            f"AUC: {roc_auc_score(y_val, y_proba):.3f}"
+    if warm_start:
+        X_all = seeds.drop(columns='label')
+        y_all = seeds['label']
+        X_tr, X_val, y_tr, y_val = train_test_split(
+            X_all, y_all, test_size=test_size, stratify=y_all, random_state=rs
         )
 
-        # 5) Select new pseudo‑labels
+        classes = np.array([0, 1])
+        weights = compute_class_weight('balanced', classes=classes, y=y_tr)
+        class_weights = dict(zip(classes, weights))
+        trees_per_iter = cfg.get("rf_trees_per_iter", 5)
+        max_trees      = cfg.get("rf_max_trees", 100)
+
+        rf = RandomForestClassifier(
+            n_estimators=0,
+            warm_start=True,
+            class_weight=class_weights,
+            random_state=rs,
+            n_jobs=-1
+        )
+    else:
+        pass
+
+    for it in range(1, max_iters + 1):
+        if warm_start:
+            new_t = min(rf.n_estimators + trees_per_iter, max_trees)
+            rf.n_estimators = new_t
+            rf.fit(X_tr, y_tr)
+            y_pred = rf.predict(X_val)
+            y_proba = rf.predict_proba(X_val)[:, 1]
+            print(f"[Iter {it}] warm RF trees={new_t}  "
+                  f"AUC={roc_auc_score(y_val, y_proba):.3f}")
+        else:
+            rf, X_val, y_val = train_initial_model(seeds)
+
         pos_c, neg_c = select_pseudo_labels(rf, feature_matrix, seeds)
 
-        # 6) Noise‑injection if needed
         if len(pos_c) < K_pos * noise_th_frac or len(neg_c) < K_neg * noise_th_frac:
             final_p, final_n = inject_noise_labels(seeds, pos_c, neg_c, segments_gdf)
         else:
             final_p, final_n = pos_c, neg_c
 
-        # Remove any that are already in seeds
         final_p = [i for i in final_p if i not in seeds.index]
         final_n = [i for i in final_n if i not in seeds.index]
 
-        # 7) Early stopping on convergence
         if not final_p and not final_n:
             print(f"Converged at iter {it} (no new labels).")
             break
 
-        # 8) Add new labels and continue
         dp = feature_matrix.loc[final_p].copy(); dp['label'] = 1
         dn = feature_matrix.loc[final_n].copy(); dn['label'] = 0
         seeds = pd.concat([seeds, dp, dn]).sort_index()
 
-        # And re-split for next iteration
         X_all = seeds.drop(columns='label'); y_all = seeds['label']
         X_tr, X_val, y_tr, y_val = train_test_split(
             X_all, y_all,
@@ -252,7 +243,6 @@ def run_self_training_single_pass(
             random_state=rs
         )
 
-    # 9) Build full label series
     full_labels = pd.Series(index=feature_matrix.index, dtype=int)
     full_labels.update(seeds['label'])
     return full_labels
@@ -261,6 +251,7 @@ def run_self_training(
     segments_gdf: gpd.GeoDataFrame,
     feature_matrix: pd.DataFrame,
     poi_gdf: gpd.GeoDataFrame,
+    warm_start: bool
 ) -> pd.Series:
     """
     Parallelize independent runs, then majority‐vote.
@@ -278,7 +269,7 @@ def run_self_training(
     # helper to pass the cache in
     def _single_run(_):
         return run_self_training_single_pass(
-            segments_gdf, feature_matrix, poi_gdf, map_n=map_n
+            segments_gdf, feature_matrix, poi_gdf, map_n=map_n, warm_start=warm_start
         )
 
     # 2) Parallel runs
