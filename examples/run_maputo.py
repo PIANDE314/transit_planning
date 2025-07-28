@@ -69,8 +69,8 @@ def step_viability_extract(ctx):
     }
 
 def step_viability_train(ctx):
-    start = ctx["viability_train_choice"] == "warm"
-    final_labels = run_self_training(ctx["segs"], ctx["feat_mat"], ctx["pois"], warm_start=mode)
+    start = (ctx["viability_train_choice"] == "warm")
+    final_labels = run_self_training(ctx["segs"], ctx["feat_mat"], ctx["pois"], warm_start=start)
     ctx["segs"]["final_viable"] = (
         ctx["segs_feat"]["segment_id"]
           .map(final_labels)
@@ -80,7 +80,7 @@ def step_viability_train(ctx):
     return {"segs": ctx["segs"]}
 
 def step_stops(ctx):
-    algo = ctx["stops_choice"] == "HD"
+    algo = (ctx["stops_choice"] == "HD")
     stops = extract_candidate_stops(
         ctx["segs"], ctx["pings_gdf"], ctx["pois"], final_label="final_viable", use_HDBSCAN=algo
     )
