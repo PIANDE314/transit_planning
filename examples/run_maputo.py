@@ -66,7 +66,6 @@ def step_stops(ctx):
     stops = extract_candidate_stops(
         ctx["segs"], ctx["pings_gdf"], ctx["pois"], final_label="final_viable"
     )
-    stops.to_file(int_dir / "stops.geojson", driver="GeoJSON")
     return {"stops": stops}
 
 def step_routes(ctx):
@@ -84,7 +83,25 @@ def step_gtfs(ctx):
     return {"gtfs_dir": gtfs_dir}
 
 def step_compare(ctx):
-    # Optional: same as before...
+    """operational_gtfs = str(gtfs_dir)
+    zones = gpd.read_file(raw_dir / "gadm41_MOZ_3.json")
+    stops = gpd.read_file(int_dir / "maputo_stops.geojson")
+    stops = stops.to_crs(zones.crs)    
+    stops["stop_id"] = stops.index.astype(str)
+    stops_with_zone = gpd.sjoin(stops, zones, how="inner", predicate="within")
+    zone_id_col = "GID_3"
+    zone_map_df = pd.DataFrame({
+        "zone_id": stops_with_zone[zone_id_col],
+        "stop_id": stops_with_zone["stop_id"]
+    })
+    zone_map_df.to_csv("maputo_zone_map.csv", index=False)
+    zone_map = pd.read_csv("maputo_zone_map.csv")
+    # phone_density = pd.read_csv("path/to/phone_density.csv")
+    acc_df, comp_stats, bias_stats = compare_accessibility(
+        str(gtfs_dir), operational_gtfs, zone_map, wealth_df["rwi"] #phone_density["density"]
+    )
+    acc_df.to_csv(int_dir / "accessibility_comparison.csv", index=False)
+    print("Accessibility comparison stats:", comp_stats, bias_stats)"""
     return {}
 
 # — 2) Stage definitions (all single‐choice for now) —  
@@ -99,6 +116,8 @@ stages = [
     {"name": "compare",    "choices": ["once"], "fn": step_compare},
 ]
 
+SKIP_CACHE = {"download", "osm_load", "gtfs", "compare"}
+
 # — 3) Caching & DFS —  
 def cache_path(stage_name, choice):
     """
@@ -111,6 +130,9 @@ def cache_path(stage_name, choice):
         return int_dir / f"{stage_name}.pkl"
 
 def run_cached(stage_name, choice, ctx):
+    if stage_name in SKIP_CACHE:
+        return fn(ctx)
+    
     cache_file = cache_path(stage_name, choice)
     if cache_file.exists():
         with open(cache_file, "rb") as f:
