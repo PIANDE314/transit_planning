@@ -59,6 +59,12 @@ def fetch_worldpop_cog_crop(
     catalog = pystac_client.Client.open(
         "https://planetarycomputer.microsoft.com/api/stac/v1"
     )
+
+    catalog = pystac_client.Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
+    for coll in catalog.get_collections():   # or catalog.collections() in newer client
+        if coll.id.startswith("worldpop"):
+            print(coll.id)
+    
     search = catalog.search(
         collections=["worldpop-100m-pop"],
         intersects=mapping(region_geom),               # GeoJSON mapping
