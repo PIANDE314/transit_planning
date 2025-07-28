@@ -160,7 +160,7 @@ def run_self_training_single_pass(
     feature_matrix: pd.DataFrame,
     poi_gdf: gpd.GeoDataFrame,
     map_n: Dict[int, set] = None,
-    warm_start: bool
+    warm_start: bool = False
 ) -> pd.Series:
     """
     One pass of self‑training with a warm‑started RandomForest.
