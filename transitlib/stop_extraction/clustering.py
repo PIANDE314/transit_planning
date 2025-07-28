@@ -12,7 +12,7 @@ def extract_candidate_stops(
     segments_gdf: gpd.GeoDataFrame,
     pings_gdf: gpd.GeoDataFrame,
     pois_gdf: gpd.GeoDataFrame,
-    final_label: str = 'final_viable'
+    final_label: str = 'final_viable',
     use_HDBSCAN: bool = False
 ) -> gpd.GeoDataFrame:
     """
