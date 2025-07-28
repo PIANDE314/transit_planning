@@ -130,14 +130,21 @@ def cache_path(stage_name, choice):
         return int_dir / f"{stage_name}.pkl"
 
 def run_cached(stage_name, choice, ctx):
+    """
+    If stage is in SKIP_CACHE, always re-run its fn (no pickle load or dump).
+    Otherwise, behave exactly as before.
+    """
+    stage = next(s for s in stages if s["name"] == stage_name)
+    fn = stage["fn"]
+
     if stage_name in SKIP_CACHE:
         return fn(ctx)
-    
+
     cache_file = cache_path(stage_name, choice)
     if cache_file.exists():
         with open(cache_file, "rb") as f:
             return pickle.load(f)
-    delta = next(s for s in stages if s["name"] == stage_name)["fn"](ctx)
+    delta = fn(ctx)
     with open(cache_file, "wb") as f:
         pickle.dump(delta, f)
     return delta
