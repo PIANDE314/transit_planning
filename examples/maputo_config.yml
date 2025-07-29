@@ -22,3 +22,5 @@ simulation_periods:
 
 # — Self-training overrides —
 self_runs: 10
+
+num_initial_routes: 100
