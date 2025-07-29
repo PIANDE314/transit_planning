@@ -224,20 +224,26 @@ def compute_segment_features(
     feat["transit_wp_dens"] = tcnt.reindex(segs.segment_id, fill_value=0) / areas
 
     # --- Neighbor‐pairs for transit‐wp‐connectivity ---
-    bufs = buffers_3857[["segment_id", "buffer"]].rename_geometry("buffer_geom")
-    bufs = bufs.set_geometry("buffer")
+    bufs = buffers_3857.copy().set_geometry("buffer")
     
+    # — 1) Self–join to find all intersecting buffer pairs —
     pairs = gpd.sjoin(
-        bufs, bufs,
+        bufs[["segment_id", "buffer"]].set_geometry("buffer"),
+        bufs[["segment_id", "buffer"]].set_geometry("buffer"),
         predicate="intersects",
-        how="inner"
+        how="inner",
+        lsuffix="orig",
+        rsuffix="nbr"
     ).reset_index(drop=True)
     
-    pairs = pairs[pairs.segment_id_left != pairs.segment_id_right]
-    pairs = pairs.loc[pairs.segment_id_left < pairs.segment_id_right].copy()
-    print(f"[DEBUG] Found {len(pairs)} buffer‐neighbor pairs")
+    # Drop self‑joins and duplicate (A,B) vs (B,A)
+    pairs = pairs[pairs.segment_id_orig != pairs.segment_id_nbr].copy()
+    pairs["pair_key"] = pairs.apply(lambda r: frozenset({r.segment_id_orig, r.segment_id_nbr}), axis=1)
+    pairs = pairs.drop_duplicates("pair_key")
+    print(f"[DEBUG] buffer neighbor pairs: {len(pairs)}")
     
-    # — 6) Compute transit waypoint connectivity density — 
+    # — 2) transit_wp_conn_dens —
+    #  a) pick only transit pings, rename segment column to orig_sid
     trans = pj[pj.ping_type == "transit"]
     trans_orig = (
         trans[["user_id", "geometry", "segment_id"]]
@@ -245,31 +251,40 @@ def compute_segment_features(
         .set_geometry("geometry")
     )
     
-    right_buf = bufs.set_index("segment_id").loc[pairs.segment_id_right]\
-                     .rename_axis("nbr_sid").reset_index()
+    #  b) build a GeoDataFrame of neighbor buffers keyed by orig_sid
+    nbr_buf = bufs.set_index("segment_id").geometry.loc[pairs.segment_id_nbr]
+    nbr_buf = gpd.GeoDataFrame({
+        "orig_sid": pairs.segment_id_orig
+    }, geometry=nbr_buf.values, crs=bufs.crs)
     
+    #  c) spatial join pings→neighbor buffers
     tp = gpd.sjoin(
         trans_orig,
-        right_buf.set_geometry("buffer_geom"),
+        nbr_buf,
         predicate="within",
         how="inner"
     )
     
-    twc = tp.groupby("orig_sid")["user_id"].count()
+    #  d) count and normalize
+    twc = tp.groupby("orig_sid")["user_id"].size()
     feat["transit_wp_conn_dens"] = twc.reindex(segs.segment_id, fill_value=0) / areas
     
-    # — 7) Compute road_density — 
-    rd_df = pairs[["segment_id_left", "segment_id_right"]]\
-            .rename(columns={"segment_id_left": "orig", "segment_id_right": "nbr"})
+    # — 3) road_density —
+    #  a) rename for clarity
+    rd_df = pairs[["segment_id_orig", "segment_id_nbr"]].rename(
+        columns={"segment_id_orig": "orig", "segment_id_nbr": "nbr"}
+    )
     
+    #  b) attach neighbor segment lengths
     rd_df = rd_df.merge(
         lines[["segment_id", "length_m"]].rename(columns={"segment_id": "nbr"}),
         on="nbr",
         how="left"
     )
     
-    rd = rd_df.groupby("orig")["length_m"].sum()
-    feat["road_density"] = rd.reindex(segs.segment_id, fill_value=0) / areas
+    #  c) sum per origin and normalize
+    rd_sum = rd_df.groupby("orig")["length_m"].sum()
+    feat["road_density"] = rd_sum.reindex(segs.segment_id, fill_value=0) / areas
 
     # --- 8) Highway type ordinal & assemble matrix ---
     segs["type_ord"] = segs.highway.map(
