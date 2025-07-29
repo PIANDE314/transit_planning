@@ -242,7 +242,7 @@ stages = [
     {"name": "osm_load",        "choices": ["once"],           "fn": step_osm},
     {"name": "simulation",      "choices": ["clean", "noisy"], "fn": step_simulation},
     {"name": "viability_ext",   "choices": ["once"],           "fn": step_viability_extract},
-    {"name": "viability_train", "choices": ["warm"],           "fn": step_viability_train},
+    {"name": "viability_train", "choices": ["once"],           "fn": step_viability_train},
     {"name": "stops",           "choices": ["D"],              "fn": step_stops},
     {"name": "routes_graph",    "choices": ["once"],           "fn": step_routes_graph},
     {"name": "routes_init",     "choices": ["gam", "norm", "uni"], "fn": step_routes_init},
