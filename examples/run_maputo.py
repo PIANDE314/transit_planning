@@ -5,6 +5,9 @@ import geopandas as gpd
 import pandas as pd
 import osmnx as ox
 from osmnx import geocode_to_gdf
+from shapely.geometry import mapping
+import rasterio
+from rasterio.mask import mask
 from transitlib.config import Config
 from transitlib.data.download import fetch_worldpop_cog_crop, fetch_hdx_rwi_csv
 from transitlib.data.osm import load_osm_network, load_osm_pois
@@ -33,16 +36,15 @@ CITY_PARAMS = {
         "place_name":       "Maputo, Mozambique",
         "geom_place_name":  "Maputo, Mozambique",
         "country_name":     "Mozambique",
-        "country_code":     "MOZ"
+        "country_code":     "MOZ",
+        "worldpop_tif_name": "MOZ_population_v2_1_gridded.tif"
     },
     "navi_mumbai": {
         "place_name":       "Navi Mumbai, Maharashtra, India",
         "geom_place_name":  "Navi Mumbai, India",
         "country_name":     "India",
         "country_code":     "IND",
-        "worldpop_cog_url": (
-            "https://data.worldpop.org/GIS/Population/Global_2000_2020/2020/ppp_2020_100m_IND.tif"
-        ),
+        "worldpop_tif_name": "MOZ_population_v2_1_gridded.tif",
         "hdx_manual_url": (
             "https://data.humdata.org/dataset/ind-pak-relative-wealth-index"
             "/resource/India%20and%20Pakistan_relative_wealth_index.csv"
@@ -53,9 +55,7 @@ CITY_PARAMS = {
         "geom_place_name":  "Chennai, India",
         "country_name":     "India",
         "country_code":     "IND",
-        "worldpop_cog_url": (
-            "https://data.worldpop.org/GIS/Population/Global_2000_2020/2020/ppp_2020_100m_IND.tif"
-        ),
+        "worldpop_tif_name": "MOZ_population_v2_1_gridded.tif",
         "hdx_manual_url": (
             "https://data.humdata.org/dataset/ind-pak-relative-wealth-index"
             "/resource/India%20and%20Pakistan_relative_wealth_index.csv"
@@ -68,26 +68,28 @@ def step_download(ctx):
     choice = ctx["download_choice"]
     params = CITY_PARAMS[choice]
     region_geom = geocode_to_gdf(params["geom_place_name"]).geometry.values[0]
+    tif_name = params["worldpop_tif_name"]
+    full_tif_path = raw_dir / tif_name
 
-    cog_url = params.get("worldpop_cog_url")
-    if not cog_url:
-        cc = params["country_code"]
-        pv = cfg.get("pop_version")
-        v_ = pv.replace(".", "_")
-        cog_url = (
-            f"https://data.worldpop.org/repo/wopr/{cc}/population/{pv}/"
-            f"{cc}_population_{v_}_gridded.tif"
-        )
+    if not full_tif_path.exists():
+        raise FileNotFoundError(f"Expected population raster not found at: {full_tif_path}")
 
-    place_slug = choice
-    out_tif = raw_dir / f"{place_slug}_pop_{cfg.get('pop_version')}.tif"
-    wp_tif = fetch_worldpop_cog_crop(
-        place_name=ctx["download_choice"],
-        country_code="IND",
-        pop_version="2020",
-        dest_dir=raw_dir,
-        region_geom=region_geom
-    )
+    out_tif = raw_dir / f"{choice}_pop_crop.tif"
+
+    geom_json = [mapping(region_geom)]
+
+    with rasterio.open(full_tif_path) as src:
+        out_image, out_transform = mask(src, geom_json, crop=True)
+        out_meta = src.meta.copy()
+        out_meta.update({
+            "driver": "GTiff",
+            "height": out_image.shape[1],
+            "width": out_image.shape[2],
+            "transform": out_transform
+        })
+
+        with rasterio.open(out_tif, "w", **out_meta) as dst:
+            dst.write(out_image)
 
     manual_hdx = params.get("hdx_manual_url")
     rwi_dest   = raw_dir / f"{place_slug}_rwi.csv"
