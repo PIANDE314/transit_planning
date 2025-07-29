@@ -65,42 +65,48 @@ CITY_PARAMS = {
 def step_download(ctx):
     choice = ctx["download_choice"]
     params = CITY_PARAMS[choice]
-    region_geom = geocode_to_gdf(params["geom_place_name"]).geometry.values[0]
-    tif_name = params["worldpop_tif_name"]
-    full_tif_path = raw_dir / tif_name
 
+    # 1) Geocode via GeoDataFrame (so we get a CRS)
+    gdf = geocode_to_gdf(params["geom_place_name"])
+    if gdf.empty:
+        raise RuntimeError(f"Could not geocode '{params['geom_place_name']}'")
+    region_geom = gdf.unary_union
+    region_crs  = gdf.crs
+
+    # 2) Paths
+    tif_name      = params["worldpop_tif_name"]
+    full_tif_path = raw_dir / tif_name
     if not full_tif_path.exists():
         raise FileNotFoundError(f"Expected population raster not found at: {full_tif_path}")
-
     out_tif = raw_dir / f"{choice}_pop_crop.tif"
 
-    geom_json = [mapping(region_geom)]
-
+    # 3) Open raster, reproject region_geom into its CRS, then mask
     with rasterio.open(full_tif_path) as src:
-        # DEBUG: show raster bounds & CRS
-        print(f"[DEBUG] Raster path: {full_tif_path}")
-        print(f"  Raster CRS: {src.crs}")
-        print(f"  Raster bounds (xmin, ymin, xmax, ymax): {src.bounds}")
-    
-        # DEBUG: region geometry
-        # region_geom came from geocode_to_gdf(...)
-        print(f"  Region geom CRS: {region_geom.crs if hasattr(region_geom, 'crs') else 'unknown'}")
-        print(f"  Region geom bounds: {region_geom.bounds}")
+        # Reproject region to match raster CRS
+        region_proj = (
+            gpd.GeoSeries([region_geom], crs=region_crs)
+               .to_crs(src.crs)
+               .iloc[0]
+        )
+        geom_json = [mapping(region_proj)]
+
+        # Crop via mask
         out_image, out_transform = mask(src, geom_json, crop=True)
+
+        # Write the cropped file
         out_meta = src.meta.copy()
         out_meta.update({
-            "driver": "GTiff",
-            "height": out_image.shape[1],
-            "width": out_image.shape[2],
+            "driver":    "GTiff",
+            "height":    out_image.shape[1],
+            "width":     out_image.shape[2],
             "transform": out_transform
         })
-
         with rasterio.open(out_tif, "w", **out_meta) as dst:
             dst.write(out_image)
 
+    # 4) Load RWI CSV & convert to GeoDataFrame
     rwi_csv_name = params["hdx_csv_name"]
     rwi_csv_path = raw_dir / rwi_csv_name
-
     if not rwi_csv_path.exists():
         raise FileNotFoundError(f"Expected RWI CSV not found at: {rwi_csv_path}")
 
