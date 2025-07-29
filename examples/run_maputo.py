@@ -66,23 +66,25 @@ def step_download(ctx):
     choice = ctx["download_choice"]
     params = CITY_PARAMS[choice]
 
-    # 1) Geocode via GeoDataFrame (so we get a CRS)
+    # Geocode to get CRS
     gdf = geocode_to_gdf(params["geom_place_name"])
     if gdf.empty:
         raise RuntimeError(f"Could not geocode '{params['geom_place_name']}'")
     region_geom = gdf.unary_union
     region_crs  = gdf.crs
 
-    # 2) Paths
     tif_name      = params["worldpop_tif_name"]
     full_tif_path = raw_dir / tif_name
+    out_tif       = raw_dir / f"{choice}_pop_crop.tif"
+
     if not full_tif_path.exists():
         raise FileNotFoundError(f"Expected population raster not found at: {full_tif_path}")
-    out_tif = raw_dir / f"{choice}_pop_crop.tif"
 
-    # 3) Open raster, reproject region_geom into its CRS, then mask
+    # Crop and zero‑out nodata
     with rasterio.open(full_tif_path) as src:
-        # Reproject region to match raster CRS
+        src_nodata = src.nodata
+
+        # reproject region to raster CRS
         region_proj = (
             gpd.GeoSeries([region_geom], crs=region_crs)
                .to_crs(src.crs)
@@ -90,38 +92,38 @@ def step_download(ctx):
         )
         geom_json = [mapping(region_proj)]
 
-        # Crop via mask
         out_image, out_transform = mask(src, geom_json, crop=True)
 
-        # Write the cropped file
+        # *** Zero‑out nodata fills ***
+        out_image[out_image == src_nodata] = 0
+
         out_meta = src.meta.copy()
         out_meta.update({
             "driver":    "GTiff",
             "height":    out_image.shape[1],
             "width":     out_image.shape[2],
-            "transform": out_transform
+            "transform": out_transform,
+            "nodata":    0
         })
         with rasterio.open(out_tif, "w", **out_meta) as dst:
             dst.write(out_image)
 
-    # 4) Load RWI CSV & convert to GeoDataFrame
-    rwi_csv_name = params["hdx_csv_name"]
-    rwi_csv_path = raw_dir / rwi_csv_name
+    # Debug check
+    with rasterio.open(out_tif) as chk:
+        arr = chk.read(1)
+        print(f"[DEBUG] Cleaned crop '{out_tif.name}': min={arr.min()}, max={arr.max()}, mean={arr.mean():.3f}")
+
+    # Load wealth
+    rwi_csv_path = raw_dir / params["hdx_csv_name"]
     if not rwi_csv_path.exists():
         raise FileNotFoundError(f"Expected RWI CSV not found at: {rwi_csv_path}")
-
     wealth_df  = load_rwi_csv(str(rwi_csv_path))
     wealth_gdf = points_to_gdf(wealth_df)
-
-    with rasterio.open(out_tif) as test_src:
-        arr = test_src.read(1)
-    print(f"[DEBUG] Cropped TIFF '{out_tif.name}': shape={arr.shape}, min={arr.min()}, max={arr.max()}, mean={arr.mean():.3f}")
 
     return {
         "wp_tif":     out_tif,
         "wealth_gdf": wealth_gdf
     }
-
 def step_osm(ctx):
     choice = ctx["download_choice"]
     params = CITY_PARAMS[choice]
