@@ -262,9 +262,9 @@ def step_compare(ctx):
 
 # — 2) Stage definitions (all single‐choice for now) —  
 stages = [
-    {"name": "download",        "choices": ["maputo", "chennai", "navi_mumbai"], "fn": step_download},
+    {"name": "download",        "choices": ["chennai", "navi_mumbai", "maputo"], "fn": step_download},
     {"name": "osm_load",        "choices": ["once"],           "fn": step_osm},
-    {"name": "simulation",      "choices": ["clean", "noisy"], "fn": step_simulation},
+    {"name": "simulation",      "choices": ["noisy", "clean"], "fn": step_simulation},
     {"name": "viability_ext",   "choices": ["once"],           "fn": step_viability_extract},
     {"name": "viability_train", "choices": ["once"],           "fn": step_viability_train},
     {"name": "stops",           "choices": ["D"],              "fn": step_stops},
