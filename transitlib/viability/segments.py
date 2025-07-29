@@ -27,12 +27,15 @@ def extract_road_segments(
     G_proj: nx.Graph
 ) -> gpd.GeoDataFrame:
     buf = cfg.get("buffer_viability")
+    total_edges = G_proj.number_of_edges()
+    kept = 0
     rows = []
     for idx, (u, v, data) in enumerate(G_proj.edges(data=True)):
         hw = data.get("highway")
         hw_list = hw if isinstance(hw, list) else [hw]
         if not any(isinstance(h, str) and h in TYPE_MAP for h in hw_list):
             continue
+        kept += 1
         geom = LineString([
             (G_proj.nodes[u]['x'], G_proj.nodes[u]['y']),
             (G_proj.nodes[v]['x'], G_proj.nodes[v]['y'])
@@ -45,7 +48,9 @@ def extract_road_segments(
             "geometry": geom
         })
 
+    print(f"[DEBUG] extract_road_segments: total edges = {total_edges}, kept = {kept}")
     segs = gpd.GeoDataFrame(rows, crs="EPSG:3857")
+    print(f"[DEBUG] extract_road_segments: created {len(segs)} segments; buffer={buf}")
     segs["buffer"]   = segs.geometry.buffer(buf)
     segs["area_km2"] = segs["buffer"].area / 1e6
     return segs
@@ -117,14 +122,25 @@ def compute_segment_features(
     segs["pop_density"] = pop_sums / segs["area_km2"].values
 
     # --- 2) POI density (make sure POIs are in the same CRS) ---
+    print(f"[DEBUG] STEP 2: computing POI density")
+    print(f"   segments buffer CRS: {buffers_3857.crs}, count: {len(buffers_3857)}")
+    print(f"   original pois count: {len(pois_gdf)}, CRS: {pois_gdf.crs}")
+
     pois_proj = pois_gdf.to_crs(buffers_3857.crs)
+    print(f"   reprojected pois count: {len(pois_proj)}, CRS: {pois_proj.crs}")
+    print("   sample poi coords:", pois_proj.geometry.head().tolist())
+
+    # spatial join
     poi_joined = gpd.sjoin(
         pois_proj,
         buffers_3857,
         predicate="within",
         how="inner"
     )
+    print(f"   after sjoin → {len(poi_joined)} total hits")
     poi_counts = poi_joined.groupby("segment_id").size()
+    print(f"   unique segment_ids with POIs: {poi_counts.size}")
+
     segs["poi_density"] = poi_counts.reindex(segs.segment_id, fill_value=0) / segs["area_km2"]
 
     # --- 3) Wealth mean (exact same join) ---
