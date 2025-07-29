@@ -30,16 +30,11 @@ def initialize_raw_seeds(
     feature_matrix: pd.DataFrame,
     poi_gdf: gpd.GeoDataFrame
 ) -> pd.DataFrame:
-    print(f"[DEBUG] Input CRS — segments: {segments_gdf.crs}, pois: {poi_gdf.crs}")
     if poi_gdf.crs != segments_gdf.crs:
         poi_gdf = poi_gdf.to_crs(segments_gdf.crs)
-        print(f"[DEBUG] Reprojected pois to {segments_gdf.crs}")
 
-    # 2) Buffer segments by poi_buf (from config)
-    print(f"[DEBUG] Using poi_buf = {poi_buf}")
     seg_buf = segments_gdf.copy()
     seg_buf['buffer'] = seg_buf.geometry.buffer(poi_buf)
-    print(f"[DEBUG] Created {len(seg_buf)} buffered geometries")
 
     # 3) Spatial join to find positives
     pos = gpd.sjoin(
@@ -49,23 +44,16 @@ def initialize_raw_seeds(
         how='inner'
     )
     pos_ids = pos.segment_id.unique()
-    print(f"[DEBUG] Found {len(pos_ids)} positive segment IDs via POI buffer")
 
-    # 4) Determine negatives by low‐feature threshold
-    print(f"[DEBUG] Computing negative threshold at {neg_pct}th percentile")
     thresh = feature_matrix.quantile(neg_pct / 100.0)
-    print(f"[DEBUG] Threshold values:\n{thresh.to_dict()}")
     neg_mask = (feature_matrix <= thresh).all(axis=1)
     neg_ids = feature_matrix.index[neg_mask]
-    print(f"[DEBUG] Found {len(neg_ids)} negative segment IDs below threshold")
 
     # 5) Assemble raw seeds DataFrame
     all_ids = list(set(pos_ids) | set(neg_ids))
     raw = feature_matrix.loc[all_ids].copy()
     raw['label'] = 0
     raw.loc[raw.index.isin(pos_ids), 'label'] = 1
-
-    print(f"[DEBUG] Assembled raw seeds — total: {len(raw)}, pos: {raw['label'].sum()}, neg: {len(raw)-raw['label'].sum()}")
 
     return raw
 
@@ -86,7 +74,6 @@ def expand_negatives_with_logreg(
     high_conf_neg["label"] = 0
 
     expanded = pd.concat([seeds_df, high_conf_neg]).sort_index()
-    print(f"[DEBUG] after LR expand: total seeds={len(expanded)} (+{len(high_conf_neg)})")
     return expanded
 
 def balance_seeds_for_rf(
@@ -100,7 +87,6 @@ def balance_seeds_for_rf(
         p.sample(k, random_state=rs),
         n.sample(k, random_state=rs)
     ]).sort_index()
-    print(f"[DEBUG] balanced for RF: pos={k} neg={k}")
     return bal
 
 def train_initial_model(seeds_df: pd.DataFrame) -> Tuple[RandomForestClassifier, pd.DataFrame, pd.Series]:
@@ -286,12 +272,7 @@ def run_self_training(
     segments_gdf: gpd.GeoDataFrame,
     feature_matrix: pd.DataFrame,
     poi_gdf: gpd.GeoDataFrame,
-) -> pd.Series:
-    # Temporarily bypass Parallel so all prints appear in this process
-    runs_to_do = 1      # do just one pass
-    in_process = True   # toggle to False once you’ve fixed the seed problem
-
-    # build neighbor map…
+) -> pd.Series
     segs = segments_gdf.reset_index(drop=True)
     neigh = gpd.sjoin(
         segs[['segment_id','geometry']],
@@ -301,20 +282,12 @@ def run_self_training(
     )
     map_n = neigh.groupby('segment_id_left')['segment_id_right'].apply(set).to_dict()
 
-    if in_process:
-        label_matrix = [
-            run_self_training_single_pass(segments_gdf, feature_matrix, poi_gdf, map_n=map_n)
-            for _ in range(runs_to_do)
-        ]
-    else:
-        label_matrix = Parallel(n_jobs=cfg.get("n_jobs", 4))(
-            delayed(run_self_training_single_pass)(
-                segments_gdf, feature_matrix, poi_gdf, map_n=map_n
-            ) for _ in range(cfg.get("runs"))
-        )
+    label_matrix = Parallel(n_jobs=cfg.get("n_jobs", 4))(
+        delayed(run_self_training_single_pass)(
+            segments_gdf, feature_matrix, poi_gdf, map_n=map_n
+        ) for _ in range(cfg.get("runs"))
+    )
 
-    # Majority vote…
     label_df = pd.DataFrame(label_matrix)
     final_labels = label_df.mode().iloc[0]
-    print("[DEBUG @run_self_training] final_labels value counts:", final_labels.value_counts())
     return final_labels
