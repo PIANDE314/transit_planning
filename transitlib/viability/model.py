@@ -272,7 +272,7 @@ def run_self_training(
     segments_gdf: gpd.GeoDataFrame,
     feature_matrix: pd.DataFrame,
     poi_gdf: gpd.GeoDataFrame,
-) -> pd.Series
+) -> pd.Series:
     segs = segments_gdf.reset_index(drop=True)
     neigh = gpd.sjoin(
         segs[['segment_id','geometry']],
