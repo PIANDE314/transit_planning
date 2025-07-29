@@ -278,15 +278,25 @@ stages = [
 SKIP_CACHE = {"download", "osm_load", "gtfs", "compare"}
 
 # — 3) Caching & DFS —  
-def cache_path(stage_name, choice):
-    """
-    Each stage gets its own file.
-    If it branches, we’ll append '__choice'.
-    """
-    if len(next(s for s in stages if s["name"] == stage_name)["choices"]) > 1:
-        return int_dir / f"{stage_name}__{choice}.pkl"
+def cache_path(stage_name: str, choice: str, labels: List[str]) -> Path:
+    # figure out if this stage actually branches
+    stage_info = next(s for s in stages if s["name"] == stage_name)
+    branches = len(stage_info["choices"]) > 1
+
+    # build the prefix from labels (only non‐single‐choice stages)
+    prefix = "_".join(labels) if labels else ""
+
+    # build the stem
+    if branches:
+        stem = f"{stage_name}_{choice}"
     else:
-        return int_dir / f"{stage_name}.pkl"
+        stem = stage_name
+
+    # join prefix & stem, dropping any empty parts
+    parts = [p for p in [prefix, stem] if p]
+    filename = "_".join(parts) + ".pkl"
+
+    return int_dir / filename
 
 def run_cached(stage_name, choice, ctx):
     """
@@ -310,11 +320,12 @@ def run_cached(stage_name, choice, ctx):
             return stage_fn(ctx)
         return stage_fn(ctx)
 
-    cache_file = cache_path(stage_name, choice)
+    cache_file = cache_path(stage_name, choice, ctx.get("labels", []))
+
     if cache_file.exists():
-        with open(cache_file, "rb") as f:
-            return pickle.load(f)
-    delta = stage_fn(ctx)
+        return pickle.load(open(cache_file, "rb"))
+
+    delta = fn(ctx)
     with open(cache_file, "wb") as f:
         pickle.dump(delta, f)
     return delta
