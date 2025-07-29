@@ -134,6 +134,11 @@ def step_osm(ctx):
     print(f"  • G_proj nodes: {len(G_proj.nodes):,}")
     print(f"  • G_proj edges: {len(G_proj.edges):,}")
     print(f"  • Bounding box: {region_geom.bounds}\n")
+    print(f"  • CRS (POIs): {pois.crs}")
+    print(f"  • CRS (region_geom): {gdf.crs}")
+    # G_proj is a NetworkX graph, but node geometry might be stored:
+    if "x" in G_proj.nodes[0] and "y" in G_proj.nodes[0]:
+        print("  • G_proj node sample coords:", G_proj.nodes[0]["x"], G_proj.nodes[0]["y"])
 
     return {
         "G_latlon":   G_latlon,
