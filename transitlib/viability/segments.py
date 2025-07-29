@@ -224,6 +224,9 @@ def compute_segment_features(
     feat["transit_wp_dens"] = tcnt.reindex(segs.segment_id, fill_value=0) / areas
 
     # --- 6) Neighbor‐pairs for transit‐wp‐connectivity ---
+    print("[DEBUG] transit pings total:", len(trans[pj.ping_type == "transit"]))
+    print("[DEBUG] buf_pairs length:", len(buf_pairs))
+    print("[DEBUG] unique orig IDs in buf_pairs:", len(set(orig for orig, _ in buf_pairs)))
     tree = STRtree(buffers_3857.geometry.values)
     geom_to_sid = {id(g): sid for g, sid in zip(buffers_3857.geometry.values, buffers_3857.segment_id)}
 
@@ -257,6 +260,9 @@ def compute_segment_features(
     twc = tp.groupby("orig_sid")["user_id"].count()
     feat["transit_wp_conn_dens"] = twc.reindex(segs.segment_id, fill_value=0) / areas
     # --- 7) Road density via one spatial‐join, with proper suffixes ---
+    print("[DEBUG] lines DF length:", len(lines))
+    print("[DEBUG] rd_pairs length:", len(rd_pairs))
+    print("[DEBUG] unique orig IDs in rd_pairs:", len(set(orig for orig, _ in rd_pairs)))
     rd_pairs = []
     for sid, geom in zip(buffers_3857.segment_id, buffers_3857.geometry):
         for nbr_geom in tree.query(geom):
