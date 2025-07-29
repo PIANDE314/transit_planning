@@ -34,25 +34,33 @@ def initialize_seed_labels(
 ) -> pd.DataFrame:
     if poi_gdf.crs != segments_gdf.crs:
         poi_gdf = poi_gdf.to_crs(segments_gdf.crs)
-    
+
     # 1) POI-based positives
     seg_buf = segments_gdf.copy()
     seg_buf['buffer'] = seg_buf.geometry.buffer(poi_buf)
+    # buffer GeoSeries has same CRS as segments_gdf
+    buf_gdf = seg_buf.set_geometry('buffer')
+
     pos = gpd.sjoin(
         poi_gdf,
-        seg_buf.set_geometry('buffer'),
+        buf_gdf[['segment_id','buffer']],
         predicate='within', how='inner'
     )
     pos_ids = pos.segment_id.unique()
+    if len(pos_ids) == 0:
+        raise ValueError("No positive seed segments found: check POI–segment overlap or buffer size.")
+
     # 2) Strict “all‑features” negatives
     thresh = feature_matrix.quantile(neg_pct / 100.0)
     neg_mask = (feature_matrix <= thresh).all(axis=1)
     neg_ids = feature_matrix.index[neg_mask]
-    # 3) Combine
+
+    # 3) Combine seeds
     seed_ids = list(set(pos_ids) | set(neg_ids))
     seeds = feature_matrix.loc[seed_ids].copy()
     seeds['label'] = 0
     seeds.loc[pos_ids, 'label'] = 1
+
     return seeds
 
 def expand_negatives_with_logreg(
