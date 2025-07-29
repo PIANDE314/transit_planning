@@ -247,43 +247,43 @@ def compute_segment_features(
     # — 2) transit_wp_conn_dens —
     # a) isolate transit pings and rename their segment column
     trans = pj[pj.ping_type == "transit"]
-    trans_orig = trans.rename(columns={"segment_id": "orig_sid"})[
-        ["user_id", "geometry", "orig_sid"]
-    ].set_geometry("geometry")
+    trans_orig = (
+        trans.rename(columns={"segment_id": "orig_sid"})
+             [["user_id","geometry","orig_sid"]]
+             .set_geometry("geometry")
+    )
     
-    # b) build a GeoDataFrame of neighbor buffers keyed by orig_sid
+    # b) build a GeoDataFrame of neighbor buffers keyed by nbr_sid
     nbr_geoms = buffers_3857.set_index("segment_id").geometry.loc[
         pairs.segment_id_nbr
     ].values
     nbr_buf = gpd.GeoDataFrame({
-        "orig_sid": pairs.segment_id_orig
+        "nbr_sid": pairs.segment_id_nbr
     }, geometry=nbr_geoms, crs=buffers_3857.crs)
     
     # c) spatial join pings → neighbor buffers
+    #    we’ll keep trans_orig.orig_sid and nbr_buf.nbr_sid separate
     tp = gpd.sjoin(
         trans_orig, nbr_buf,
         predicate="within",
-        how="inner"
+        how="inner",
+        lsuffix="orig", rsuffix="nbr"
     )
     
-    # d) count per orig_sid and normalize
+    # d) group by orig_sid (now safe) and normalize
     twc = tp.groupby("orig_sid")["user_id"].size()
     feat["transit_wp_conn_dens"] = twc.reindex(segs.segment_id, fill_value=0) / areas
     
     # — 3) road_density —
-    # a) rename for clarity
-    rd_df = pairs[["segment_id_orig", "segment_id_nbr"]].rename(
-        columns={"segment_id_orig": "orig", "segment_id_nbr": "nbr"}
+    rd_df = pairs[["segment_id_orig","segment_id_nbr"]].rename(
+        columns={"segment_id_orig":"orig","segment_id_nbr":"nbr"}
     )
-    
-    # b) attach neighbor segment lengths
+    # join on nbr → length_m
     rd_df = rd_df.merge(
-        lines[["segment_id", "length_m"]].rename(columns={"segment_id": "nbr"}),
-        on="nbr",
-        how="left"
+        lines[["segment_id","length_m"]]
+             .rename(columns={"segment_id":"nbr"}),
+        on="nbr", how="left"
     )
-    
-    # c) sum per origin and normalize
     rd_sum = rd_df.groupby("orig")["length_m"].sum()
     feat["road_density"] = rd_sum.reindex(segs.segment_id, fill_value=0) / areas
 
