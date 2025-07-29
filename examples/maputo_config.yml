@@ -5,7 +5,7 @@ country_code: "MOZ"                          # for WorldPop & HDX suffix
 
 raw_data_dir: "data/raw"                    # where downloaded files go
 intermediate_dir: "data/intermediate"       # caches for segments, features, stops, etc.
-gtfs_output_dir: "output/gtfs_maputo"       # final GTFS feed
+gtfs_output_dir: "output/mock_output"       # final GTFS feed
 
 # — GTFS metadata overrides —
 agency_timezone: "Africa/Maputo"
@@ -15,7 +15,7 @@ service_id: "MAP1"
 agency_id: "MAP"
 
 # — Simulation overrides —
-n_users: 1
+n_users: 100
 simulation_periods:
   - start: "2025-07-26"
     end: "2025-08-01"
