@@ -33,45 +33,39 @@ def initialize_seed_labels(
     poi_gdf: gpd.GeoDataFrame
 ) -> pd.DataFrame:
     proj_crs = "EPSG:3857"
-
-    # 1) Reproject both layers into metric CRS
     segs_proj = segments_gdf.to_crs(proj_crs)
     pois_proj = poi_gdf.to_crs(proj_crs)
 
-    # 2) Build buffers (in meters) on the projected segments
-    segs_proj["buffer_geom"] = segs_proj.geometry.buffer(poi_buf)
-
-    # 3) Spatial join: which POIs fall within which buffered segment?
-    buf_gdf = segs_proj.set_geometry("buffer_geom")[["segment_id", "buffer_geom"]]
-    pos = gpd.sjoin(
-        pois_proj.set_geometry("geometry"),
-        buf_gdf.rename_geometry("geometry"),
-        predicate="within",
-        how="inner"
+    # 2) For each POI, find its nearest segment within poi_buf meters
+    nn = gpd.sjoin_nearest(
+        pois_proj[['geometry']],
+        segs_proj[['segment_id','geometry']],
+        how='inner',
+        max_distance=poi_buf,
+        distance_col="dist"
     )
+    pos_ids = nn.segment_id.unique()
+    print(f"[DEBUG] Found {len(pos_ids)} positive segments via nearest (≤{poi_buf} m)")
 
-    pos_ids = pos.segment_id.unique()
-    print(f"[DEBUG] positive seeds found: {len(pos_ids)}")
     if len(pos_ids) == 0:
         raise ValueError(
-            "No POIs fell within any segment buffers. "
-            "Either increase `buffer_poi` or verify your POI layer."
+            f"No POIs assigned to any segment within {poi_buf} m – "
+            "try increasing buffer_poi or inspect your POI layer."
         )
 
-    # 4) Strict “all‑features” negatives (unchanged)
+    # 3) Strict “all‐features” negatives (same as you had)
     thresh = feature_matrix.quantile(neg_pct / 100.0)
     neg_mask = (feature_matrix <= thresh).all(axis=1)
     neg_ids = feature_matrix.index[neg_mask]
-    print(f"[DEBUG] negative seeds found: {len(neg_ids)}")
+    print(f"[DEBUG] Found {len(neg_ids)} strict negatives")
 
-    # 5) Combine and label
-    seed_ids = list(set(pos_ids) | set(neg_ids))
-    seeds = feature_matrix.loc[seed_ids].copy()
-    seeds["label"] = 0
-    seeds.loc[pos_ids, "label"] = 1
+    # 4) Combine & label
+    seed_ids = set(pos_ids) | set(neg_ids)
+    seeds = feature_matrix.loc[list(seed_ids)].copy()
+    seeds['label'] = 0
+    seeds.loc[pos_ids, 'label'] = 1
 
-    print(f"[DEBUG] seed label distribution:\n{seeds['label'].value_counts()}")
-
+    print("[DEBUG] Seed label counts:\n", seeds['label'].value_counts())
     return seeds
 
 def expand_negatives_with_logreg(
