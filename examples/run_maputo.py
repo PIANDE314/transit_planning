@@ -155,8 +155,7 @@ def step_viability_extract(ctx):
     }
 
 def step_viability_train(ctx):
-    start = (ctx["viability_train_choice"] == "warm")
-    final_labels = run_self_training(ctx["segs"], ctx["feat_mat"], ctx["pois"], warm_start=start)
+    final_labels = run_self_training(ctx["segs"], ctx["feat_mat"], ctx["pois"])
     ctx["segs"]["final_viable"] = (
         ctx["segs_feat"]["segment_id"]
           .map(final_labels)
