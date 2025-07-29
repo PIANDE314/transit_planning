@@ -32,7 +32,7 @@ def _get_length_pmf(node_dist: str) -> np.ndarray:
     else:
         raise ValueError(f"Unknown node_dist: {node_dist!r}")
 
-    ks = np.arange(2, 100)
+    ks = np.arange(2, 1000)
     cdf_high = dist.cdf(ks + 0.5)
     cdf_low  = dist.cdf(ks - 0.5)
     pmf = cdf_high - cdf_low
