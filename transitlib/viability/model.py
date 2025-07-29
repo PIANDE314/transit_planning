@@ -60,14 +60,12 @@ def initialize_raw_seeds(
     print(f"[DEBUG] Found {len(neg_ids)} negative segment IDs below threshold")
 
     # 5) Assemble raw seeds DataFrame
-    raw = feature_matrix.loc[list(pos_ids) + list(neg_ids)].copy()
+    all_ids = list(set(pos_ids) | set(neg_ids))
+    raw = feature_matrix.loc[all_ids].copy()
     raw['label'] = 0
-    raw.loc[pos_ids, 'label'] = 1
-    print(f"[DEBUG] Assembled raw seeds — total: {len(raw)}, pos: {raw.label.sum()}, neg: {len(raw)-raw.label.sum()}")
+    raw.loc[raw.index.isin(pos_ids), 'label'] = 1
 
-    # 6) Dump a quick head of the seeds for sanity
-    print("[DEBUG] raw.head():")
-    print(raw.head())
+    print(f"[DEBUG] Assembled raw seeds — total: {len(raw)}, pos: {raw['label'].sum()}, neg: {len(raw)-raw['label'].sum()}")
 
     return raw
 
