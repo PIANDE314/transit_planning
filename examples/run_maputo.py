@@ -8,7 +8,7 @@ from osmnx import geocode_to_gdf
 from shapely.geometry import mapping
 import rasterio
 from rasterio.mask import mask
-from collections import Counter
+from typing import List
 from transitlib.config import Config
 from transitlib.data.download import fetch_worldpop_cog_crop, fetch_hdx_rwi_csv
 from transitlib.data.osm import load_osm_network, load_osm_pois
