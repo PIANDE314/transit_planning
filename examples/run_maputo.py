@@ -44,7 +44,7 @@ CITY_PARAMS = {
         "geom_place_name":  "Navi Mumbai, India",
         "country_name":     "India",
         "country_code":     "IND",
-        "worldpop_tif_name": "MOZ_population_v2_1_gridded.tif",
+        "worldpop_tif_name": "ind_ppp_2020_constrained..tif",
         "hdx_manual_url": (
             "https://data.humdata.org/dataset/ind-pak-relative-wealth-index"
             "/resource/India%20and%20Pakistan_relative_wealth_index.csv"
@@ -55,7 +55,7 @@ CITY_PARAMS = {
         "geom_place_name":  "Chennai, India",
         "country_name":     "India",
         "country_code":     "IND",
-        "worldpop_tif_name": "MOZ_population_v2_1_gridded.tif",
+        "worldpop_tif_name": "ind_ppp_2020_constrained.tif",
         "hdx_manual_url": (
             "https://data.humdata.org/dataset/ind-pak-relative-wealth-index"
             "/resource/India%20and%20Pakistan_relative_wealth_index.csv"
