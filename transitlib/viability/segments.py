@@ -116,9 +116,10 @@ def compute_segment_features(
     )
     segs["pop_density"] = pop_sums / segs["area_km2"].values
 
-    # --- 2) POI density (exact same join) ---
+    # --- 2) POI density (make sure POIs are in the same CRS) ---
+    pois_proj = pois_gdf.to_crs(buffers_3857.crs)
     poi_joined = gpd.sjoin(
-        pois_gdf,
+        pois_proj,
         buffers_3857,
         predicate="within",
         how="inner"
@@ -127,8 +128,9 @@ def compute_segment_features(
     segs["poi_density"] = poi_counts.reindex(segs.segment_id, fill_value=0) / segs["area_km2"]
 
     # --- 3) Wealth mean (exact same join) ---
+    wealth_proj = wealth_gdf.to_crs(buffers_3857.crs)
     wj = gpd.sjoin(
-        wealth_gdf,
+        wealth_proj,
         buffers_3857,
         predicate="within",
         how="inner"
