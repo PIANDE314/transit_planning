@@ -209,7 +209,7 @@ def run_self_training_single_pass(
         random_state=rs,
         n_jobs=-1
     )
-    trees_per_iter = cfg.get("rf_trees_per_iter", 10)
+    trees_per_iter = cfg.get("rf_trees_per_iter", 5)
 
     # 4) Self‑training loop
     for it in range(1, max_iters + 1):
