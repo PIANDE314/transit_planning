@@ -32,6 +32,9 @@ def initialize_seed_labels(
     feature_matrix: pd.DataFrame,
     poi_gdf: gpd.GeoDataFrame
 ) -> pd.DataFrame:
+    if poi_gdf.crs != segments_gdf.crs:
+        poi_gdf = poi_gdf.to_crs(segments_gdf.crs)
+    
     # 1) POI-based positives
     seg_buf = segments_gdf.copy()
     seg_buf['buffer'] = seg_buf.geometry.buffer(poi_buf)
