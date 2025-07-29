@@ -113,6 +113,10 @@ def step_download(ctx):
     wealth_df  = load_rwi_csv(str(rwi_csv_path))
     wealth_gdf = points_to_gdf(wealth_df)
 
+    with rasterio.open(out_tif) as test_src:
+    arr = test_src.read(1)
+    print(f"[DEBUG] Cropped TIFF '{out_tif.name}': shape={arr.shape}, min={arr.min()}, max={arr.max()}, mean={arr.mean():.3f}")
+
     return {
         "wp_tif":     out_tif,
         "wealth_gdf": wealth_gdf
@@ -162,6 +166,12 @@ def step_viability_extract(ctx):
         ctx["wealth_gdf"],
         ctx["pings_gdf"],
     )
+
+    print("\n[DEBUG] Feature matrix before training:")
+    print(" shape:", feat_mat.shape)
+    print(feat_mat.describe().T)         # summary of each column
+    print(" nunique per column:\n", feat_mat.nunique())
+    
     return {
         "segs": segs,
         "segs_feat": segs_feat,
