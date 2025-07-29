@@ -8,6 +8,7 @@ from osmnx import geocode_to_gdf
 from shapely.geometry import mapping
 import rasterio
 from rasterio.mask import mask
+from collections import Counter
 from transitlib.config import Config
 from transitlib.data.download import fetch_worldpop_cog_crop, fetch_hdx_rwi_csv
 from transitlib.data.osm import load_osm_network, load_osm_pois
@@ -124,6 +125,7 @@ def step_download(ctx):
         "wp_tif":     out_tif,
         "wealth_gdf": wealth_gdf
     }
+
 def step_osm(ctx):
     choice = ctx["download_choice"]
     params = CITY_PARAMS[choice]
@@ -182,6 +184,8 @@ def step_viability_extract(ctx):
     }
 
 def step_viability_train(ctx):
+    seed_labels = ctx.get("initial_labels", {})
+    print("[DEBUG] seed label counts:", Counter(seed_labels.values()))
     final_labels = run_self_training(ctx["segs"], ctx["feat_mat"], ctx["pois"])
     ctx["segs"]["final_viable"] = (
         ctx["segs_feat"]["segment_id"]
