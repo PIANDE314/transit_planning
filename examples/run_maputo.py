@@ -77,6 +77,15 @@ def step_download(ctx):
     geom_json = [mapping(region_geom)]
 
     with rasterio.open(full_tif_path) as src:
+        # DEBUG: show raster bounds & CRS
+        print(f"[DEBUG] Raster path: {full_tif_path}")
+        print(f"  Raster CRS: {src.crs}")
+        print(f"  Raster bounds (xmin, ymin, xmax, ymax): {src.bounds}")
+    
+        # DEBUG: region geometry
+        # region_geom came from geocode_to_gdf(...)
+        print(f"  Region geom CRS: {region_geom.crs if hasattr(region_geom, 'crs') else 'unknown'}")
+        print(f"  Region geom bounds: {region_geom.bounds}")
         out_image, out_transform = mask(src, geom_json, crop=True)
         out_meta = src.meta.copy()
         out_meta.update({
