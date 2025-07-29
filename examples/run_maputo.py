@@ -125,21 +125,7 @@ def step_osm(ctx):
         region_geom = gdf.unary_union
     except Exception as e:
         raise RuntimeError(f"Could not geocode '{place}': {e}")
-
-    print(f"\n[OSM Load Stats for '{place}']")
-    print(f"  • POIs loaded: {len(pois):,}")
-    print(f"  • POI columns: {list(pois.columns)}")
-    print(f"  • G_latlon nodes: {len(G_latlon.nodes):,}")
-    print(f"  • G_latlon edges: {len(G_latlon.edges):,}")
-    print(f"  • G_proj nodes: {len(G_proj.nodes):,}")
-    print(f"  • G_proj edges: {len(G_proj.edges):,}")
-    print(f"  • Bounding box: {region_geom.bounds}\n")
-    print(f"  • CRS (POIs): {pois.crs}")
-    print(f"  • CRS (region_geom): {gdf.crs}")
-    # G_proj is a NetworkX graph, but node geometry might be stored:
-    if "x" in G_proj.nodes[0] and "y" in G_proj.nodes[0]:
-        print("  • G_proj node sample coords:", G_proj.nodes[0]["x"], G_proj.nodes[0]["y"])
-
+    
     return {
         "G_latlon":   G_latlon,
         "G_proj":     G_proj,
