@@ -279,23 +279,17 @@ SKIP_CACHE = {"download", "osm_load", "gtfs", "compare"}
 
 # — 3) Caching & DFS —  
 def cache_path(stage_name: str, choice: str, labels: List[str]) -> Path:
-    # figure out if this stage actually branches
     stage_info = next(s for s in stages if s["name"] == stage_name)
     branches = len(stage_info["choices"]) > 1
 
-    # build the prefix from labels (only non‐single‐choice stages)
     prefix = "_".join(labels) if labels else ""
 
-    # build the stem
     if branches:
-        stem = f"{stage_name}_{choice}"
+        parts = [p for p in [prefix, choice, stage_name] if p]
     else:
-        stem = stage_name
+        parts = [p for p in [prefix, stage_name] if p]
 
-    # join prefix & stem, dropping any empty parts
-    parts = [p for p in [prefix, stem] if p]
     filename = "_".join(parts) + ".pkl"
-
     return int_dir / filename
 
 def run_cached(stage_name, choice, ctx):
