@@ -38,7 +38,8 @@ CITY_PARAMS = {
         "geom_place_name":  "Maputo, Mozambique",
         "country_name":     "Mozambique",
         "country_code":     "MOZ",
-        "worldpop_tif_name": "MOZ_population_v2_1_gridded.tif"
+        "worldpop_tif_name": "MOZ_pop.tif",
+        "hdx_csv_name":     "MOZ_rwi.csv"
     },
     "navi_mumbai": {
         "city_name":        "Navi Mumbai",
@@ -46,11 +47,8 @@ CITY_PARAMS = {
         "geom_place_name":  "Navi Mumbai, India",
         "country_name":     "India",
         "country_code":     "IND",
-        "worldpop_tif_name": "ind_ppp_2020_constrained.tif",
-        "hdx_manual_url": (
-            "https://data.humdata.org/dataset/ind-pak-relative-wealth-index"
-            "/resource/India%20and%20Pakistan_relative_wealth_index.csv"
-        )
+        "worldpop_tif_name": "IND_pop.tif",
+        "hdx_csv_name":     "IND_rwi.csv"
     },
     "chennai": {
         "city_name":        "Chennai",
@@ -58,11 +56,8 @@ CITY_PARAMS = {
         "geom_place_name":  "Chennai, India",
         "country_name":     "India",
         "country_code":     "IND",
-        "worldpop_tif_name": "ind_ppp_2020_constrained.tif",
-        "hdx_manual_url": (
-            "https://data.humdata.org/dataset/ind-pak-relative-wealth-index"
-            "/resource/India%20and%20Pakistan_relative_wealth_index.csv"
-        )
+        "worldpop_tif_name": "IND_pop.tif",
+        "hdx_csv_name":     "IND_rwi.csv"
     }
 }
 
@@ -94,21 +89,17 @@ def step_download(ctx):
         with rasterio.open(out_tif, "w", **out_meta) as dst:
             dst.write(out_image)
 
-    manual_hdx = params.get("hdx_manual_url")
-    city = params.get("city_name")
-    rwi_dest   = raw_dir / f"{city}_rwi.csv"
-    rwi_csv    = fetch_hdx_rwi_csv(
-        manual_url=manual_hdx,
-        country_name=params["country_name"],
-        country_code=params["country_code"],
-        dest=rwi_dest
-    )
+    rwi_csv_name = params["hdx_csv_name"]
+    rwi_csv_path = raw_dir / rwi_csv_name
 
-    wealth_df  = load_rwi_csv(str(rwi_csv))
+    if not rwi_csv_path.exists():
+        raise FileNotFoundError(f"Expected RWI CSV not found at: {rwi_csv_path}")
+
+    wealth_df  = load_rwi_csv(str(rwi_csv_path))
     wealth_gdf = points_to_gdf(wealth_df)
 
     return {
-        "wp_tif":     wp_tif,
+        "wp_tif":     out_tif,
         "wealth_gdf": wealth_gdf
     }
 
