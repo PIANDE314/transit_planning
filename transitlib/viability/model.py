@@ -32,41 +32,55 @@ def initialize_seed_labels(
     feature_matrix: pd.DataFrame,
     poi_gdf: gpd.GeoDataFrame
 ) -> pd.DataFrame:
-    proj_crs = "EPSG:3857"
-    segs_proj = segments_gdf.to_crs(proj_crs)
-    pois_proj = poi_gdf.to_crs(proj_crs)
+    # 0) Make sure both layers share the same CRS
+    if poi_gdf.crs != segments_gdf.crs:
+        poi_gdf = poi_gdf.to_crs(segments_gdf.crs)
 
-    # 2) For each POI, find its nearest segment within poi_buf meters
-    nn = gpd.sjoin_nearest(
-        pois_proj[['geometry']],
-        segs_proj[['segment_id','geometry']],
-        how='inner',
-        max_distance=poi_buf,
-        distance_col="dist"
+    # 1) Build segment buffers (meters if CRS is metric)
+    seg_buf = segments_gdf.copy()
+    seg_buf['buffer'] = seg_buf.geometry.buffer(poi_buf)
+
+    # 2) Spatial join: POIs within those buffers
+    buf_gdf = seg_buf.set_geometry('buffer')
+    pos = gpd.sjoin(
+        poi_gdf,
+        buf_gdf[['segment_id','buffer']],
+        predicate='within',
+        how='inner'
     )
-    pos_ids = nn.segment_id.unique()
-    print(f"[DEBUG] Found {len(pos_ids)} positive segments via nearest (≤{poi_buf} m)")
+    pos_ids = pos.segment_id.unique()
+    print(f"[DEBUG] Found {len(pos_ids)} positive seeds (segments with ≥1 POI in buffer)")
 
     if len(pos_ids) == 0:
         raise ValueError(
-            f"No POIs assigned to any segment within {poi_buf} m – "
-            "try increasing buffer_poi or inspect your POI layer."
+            "No positives detected! Either your buffer_poi is too small, or your POI layer is offset.\n"
+            "Try increasing buffer_poi in your config or inspect the CRS/geometries."
         )
 
-    # 3) Strict “all‐features” negatives (same as you had)
+    # 3) Strict all‑features negatives
     thresh = feature_matrix.quantile(neg_pct / 100.0)
     neg_mask = (feature_matrix <= thresh).all(axis=1)
-    neg_ids = feature_matrix.index[neg_mask]
-    print(f"[DEBUG] Found {len(neg_ids)} strict negatives")
+    neg_ids  = feature_matrix.index[neg_mask]
+    print(f"[DEBUG] Found {len(neg_ids)} strict negatives (all features ≤ {neg_pct}th percentile)")
 
-    # 4) Combine & label
-    seed_ids = set(pos_ids) | set(neg_ids)
-    seeds = feature_matrix.loc[list(seed_ids)].copy()
+    # 4) Combine seeds & label
+    seed_ids = list(set(pos_ids) | set(neg_ids))
+    seeds = feature_matrix.loc[seed_ids].copy()
     seeds['label'] = 0
     seeds.loc[pos_ids, 'label'] = 1
 
-    print("[DEBUG] Seed label counts:\n", seeds['label'].value_counts())
-    return seeds
+    # 5) Balance exactly as before
+    p_df = seeds[seeds.label == 1]
+    n_df = seeds[seeds.label == 0]
+    n = min(len(p_df), len(n_df))
+    balanced = pd.concat([
+        p_df.sample(n, random_state=rs),
+        n_df.sample(n, random_state=rs)
+    ]).sort_index()
+
+    print(f"[DEBUG] Final balanced seeds: {balanced.label.value_counts().to_dict()}")
+
+    return balanced
 
 def expand_negatives_with_logreg(
     raw_seeds: pd.DataFrame,
