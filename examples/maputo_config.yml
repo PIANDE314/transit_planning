@@ -15,12 +15,12 @@ service_id: "MAP1"
 agency_id: "MAP"
 
 # — Simulation overrides —
-n_users: 100
+n_users: 1
 simulation_periods:
   - start: "2025-07-26"
     end: "2025-08-01"
 
 # — Self-training overrides —
-self_runs: 10
+self_runs: 1
 
 num_initial_routes: 100
