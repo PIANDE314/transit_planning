@@ -196,10 +196,24 @@ def run_self_training_single_pass(
     # 2) Pre-split train/validation once
     X_all = seeds.drop(columns='label')
     y_all = seeds['label']
+    
+    # Determine if stratification is possible
+    num_classes = y_all.nunique()
+    if isinstance(test_size, float):
+        test_count = int(test_size * len(y_all))
+    else:
+        test_count = test_size
+    
+    if test_count < num_classes:
+        print(f"[WARN] Skipping stratification: test set too small ({test_count} < {num_classes} classes).")
+        strat = None
+    else:
+        strat = y_all
+    
     X_tr, X_val, y_tr, y_val = train_test_split(
         X_all, y_all,
         test_size=test_size,
-        stratify=y_all,
+        stratify=strat,
         random_state=rs
     )
 
