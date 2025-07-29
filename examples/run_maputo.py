@@ -325,7 +325,7 @@ def run_cached(stage_name, choice, ctx):
     if cache_file.exists():
         return pickle.load(open(cache_file, "rb"))
 
-    delta = fn(ctx)
+    delta = stage_fn(ctx)
     with open(cache_file, "wb") as f:
         pickle.dump(delta, f)
     return delta
