@@ -112,7 +112,6 @@ def step_download(ctx):
     # Debug check
     with rasterio.open(out_tif) as chk:
         arr = chk.read(1)
-        print(f"[DEBUG] Cleaned crop '{out_tif.name}': min={arr.min()}, max={arr.max()}, mean={arr.mean():.3f}")
 
     # Load wealth
     rwi_csv_path = raw_dir / params["hdx_csv_name"]
@@ -168,13 +167,8 @@ def step_viability_extract(ctx):
         str(ctx["wp_tif"]),
         ctx["pois"],
         ctx["wealth_gdf"],
-        ctx["pings_gdf"],
+        ctx["pings_gdf"]
     )
-
-    print("\n[DEBUG] Feature matrix before training:")
-    print(" shape:", feat_mat.shape)
-    print(feat_mat.describe().T)         # summary of each column
-    print(" nunique per column:\n", feat_mat.nunique())
     
     return {
         "segs": segs,
@@ -185,7 +179,6 @@ def step_viability_extract(ctx):
 
 def step_viability_train(ctx):
     seed_labels = ctx.get("initial_labels", {})
-    print("[DEBUG] seed label counts:", Counter(seed_labels.values()))
     final_labels = run_self_training(ctx["segs"], ctx["feat_mat"], ctx["pois"])
     ctx["segs"]["final_viable"] = (
         ctx["segs_feat"]["segment_id"]
