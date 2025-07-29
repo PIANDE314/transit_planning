@@ -33,6 +33,7 @@ outputs_dir = Path("output"); outputs_dir.mkdir(parents=True, exist_ok=True)
 
 CITY_PARAMS = {
     "maputo": {
+        "city_name":        "Maputo",
         "place_name":       "Maputo, Mozambique",
         "geom_place_name":  "Maputo, Mozambique",
         "country_name":     "Mozambique",
@@ -40,6 +41,7 @@ CITY_PARAMS = {
         "worldpop_tif_name": "MOZ_population_v2_1_gridded.tif"
     },
     "navi_mumbai": {
+        "city_name":        "Navi Mumbai",
         "place_name":       "Navi Mumbai, Maharashtra, India",
         "geom_place_name":  "Navi Mumbai, India",
         "country_name":     "India",
@@ -51,6 +53,7 @@ CITY_PARAMS = {
         )
     },
     "chennai": {
+        "city_name":        "Chennai",
         "place_name":       "Chennai, Tamil Nadu, India",
         "geom_place_name":  "Chennai, India",
         "country_name":     "India",
@@ -92,7 +95,7 @@ def step_download(ctx):
             dst.write(out_image)
 
     manual_hdx = params.get("hdx_manual_url")
-    rwi_dest   = raw_dir / f"{place_slug}_rwi.csv"
+    rwi_dest   = raw_dir / f"{params.get("city_name")}_rwi.csv"
     rwi_csv    = fetch_hdx_rwi_csv(
         manual_url=manual_hdx,
         country_name=params["country_name"],
