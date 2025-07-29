@@ -30,23 +30,45 @@ def initialize_raw_seeds(
     feature_matrix: pd.DataFrame,
     poi_gdf: gpd.GeoDataFrame
 ) -> pd.DataFrame:
+    print(f"[DEBUG] Input CRS — segments: {segments_gdf.crs}, pois: {poi_gdf.crs}")
     if poi_gdf.crs != segments_gdf.crs:
         poi_gdf = poi_gdf.to_crs(segments_gdf.crs)
-    
+        print(f"[DEBUG] Reprojected pois to {segments_gdf.crs}")
+
+    # 2) Buffer segments by poi_buf (from config)
+    print(f"[DEBUG] Using poi_buf = {poi_buf}")
     seg_buf = segments_gdf.copy()
     seg_buf['buffer'] = seg_buf.geometry.buffer(poi_buf)
-    pos = gpd.sjoin(poi_gdf, seg_buf.set_geometry('buffer'),
-                    predicate='within', how='inner')
-    pos_ids = pos.segment_id.unique()
+    print(f"[DEBUG] Created {len(seg_buf)} buffered geometries")
 
+    # 3) Spatial join to find positives
+    pos = gpd.sjoin(
+        poi_gdf,
+        seg_buf.set_geometry('buffer'),
+        predicate='within',
+        how='inner'
+    )
+    pos_ids = pos.segment_id.unique()
+    print(f"[DEBUG] Found {len(pos_ids)} positive segment IDs via POI buffer")
+
+    # 4) Determine negatives by low‐feature threshold
+    print(f"[DEBUG] Computing negative threshold at {neg_pct}th percentile")
     thresh = feature_matrix.quantile(neg_pct / 100.0)
+    print(f"[DEBUG] Threshold values:\n{thresh.to_dict()}")
     neg_mask = (feature_matrix <= thresh).all(axis=1)
     neg_ids = feature_matrix.index[neg_mask]
+    print(f"[DEBUG] Found {len(neg_ids)} negative segment IDs below threshold")
 
+    # 5) Assemble raw seeds DataFrame
     raw = feature_matrix.loc[list(pos_ids) + list(neg_ids)].copy()
     raw['label'] = 0
     raw.loc[pos_ids, 'label'] = 1
-    print(f"[DEBUG] raw seeds: pos={len(pos_ids)} neg={len(neg_ids)}")
+    print(f"[DEBUG] Assembled raw seeds — total: {len(raw)}, pos: {raw.label.sum()}, neg: {len(raw)-raw.label.sum()}")
+
+    # 6) Dump a quick head of the seeds for sanity
+    print("[DEBUG] raw.head():")
+    print(raw.head())
+
     return raw
 
 def expand_negatives_with_logreg(
