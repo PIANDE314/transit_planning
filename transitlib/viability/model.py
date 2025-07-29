@@ -285,7 +285,7 @@ def run_self_training(
     label_matrix = Parallel(n_jobs=cfg.get("n_jobs", 4))(
         delayed(run_self_training_single_pass)(
             segments_gdf, feature_matrix, poi_gdf, map_n=map_n
-        ) for _ in range(cfg.get("runs"))
+        ) for _ in range(runs)
     )
 
     label_df = pd.DataFrame(label_matrix)
