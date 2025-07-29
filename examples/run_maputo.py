@@ -114,7 +114,7 @@ def step_download(ctx):
     wealth_gdf = points_to_gdf(wealth_df)
 
     with rasterio.open(out_tif) as test_src:
-    arr = test_src.read(1)
+        arr = test_src.read(1)
     print(f"[DEBUG] Cropped TIFF '{out_tif.name}': shape={arr.shape}, min={arr.min()}, max={arr.max()}, mean={arr.mean():.3f}")
 
     return {
