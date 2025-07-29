@@ -126,6 +126,15 @@ def step_osm(ctx):
     except Exception as e:
         raise RuntimeError(f"Could not geocode '{place}': {e}")
 
+    print(f"\n[OSM Load Stats for '{place}']")
+    print(f"  • POIs loaded: {len(pois):,}")
+    print(f"  • POI columns: {list(pois.columns)}")
+    print(f"  • G_latlon nodes: {len(G_latlon.nodes):,}")
+    print(f"  • G_latlon edges: {len(G_latlon.edges):,}")
+    print(f"  • G_proj nodes: {len(G_proj.nodes):,}")
+    print(f"  • G_proj edges: {len(G_proj.edges):,}")
+    print(f"  • Bounding box: {region_geom.bounds}\n")
+
     return {
         "G_latlon":   G_latlon,
         "G_proj":     G_proj,
