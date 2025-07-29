@@ -95,7 +95,8 @@ def step_download(ctx):
             dst.write(out_image)
 
     manual_hdx = params.get("hdx_manual_url")
-    rwi_dest   = raw_dir / f"{params.get("city_name")}_rwi.csv"
+    city = params.get("city_name")
+    rwi_dest   = raw_dir / f"{city}_rwi.csv"
     rwi_csv    = fetch_hdx_rwi_csv(
         manual_url=manual_hdx,
         country_name=params["country_name"],
