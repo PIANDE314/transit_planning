@@ -48,9 +48,7 @@ def extract_road_segments(
             "geometry": geom
         })
 
-    print(f"[DEBUG] extract_road_segments: total edges = {total_edges}, kept = {kept}")
     segs = gpd.GeoDataFrame(rows, crs="EPSG:3857")
-    print(f"[DEBUG] extract_road_segments: created {len(segs)} segments; buffer={buf}")
     segs["buffer"]   = segs.geometry.buffer(buf)
     segs["area_km2"] = segs["buffer"].area / 1e6
     return segs
@@ -122,13 +120,7 @@ def compute_segment_features(
     segs["pop_density"] = pop_sums / segs["area_km2"].values
 
     # --- 2) POI density (make sure POIs are in the same CRS) ---
-    print(f"[DEBUG] STEP 2: computing POI density")
-    print(f"   segments buffer CRS: {buffers_3857.crs}, count: {len(buffers_3857)}")
-    print(f"   original pois count: {len(pois_gdf)}, CRS: {pois_gdf.crs}")
-
     pois_proj = pois_gdf.to_crs(buffers_3857.crs)
-    print(f"   reprojected pois count: {len(pois_proj)}, CRS: {pois_proj.crs}")
-    print("   sample poi coords:", pois_proj.geometry.head().tolist())
 
     # spatial join
     poi_joined = gpd.sjoin(
@@ -137,10 +129,8 @@ def compute_segment_features(
         predicate="within",
         how="inner"
     )
-    print(f"   after sjoin → {len(poi_joined)} total hits")
+    
     poi_counts = poi_joined.groupby("segment_id").size()
-    print(f"   unique segment_ids with POIs: {poi_counts.size}")
-
     segs["poi_density"] = poi_counts.reindex(segs.segment_id, fill_value=0) / segs["area_km2"]
 
     # --- 3) Wealth mean (exact same join) ---
@@ -242,7 +232,6 @@ def compute_segment_features(
         lambda r: frozenset({r.segment_id_orig, r.segment_id_nbr}), axis=1
     )
     pairs = pairs.drop_duplicates("pair_key")
-    print(f"[DEBUG] buffer neighbor pairs: {len(pairs)}")
     
     # — 2) transit_wp_conn_dens —
     # a) isolate transit pings and rename their segment column
