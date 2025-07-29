@@ -267,10 +267,11 @@ def run_self_training(
     feature_matrix: pd.DataFrame,
     poi_gdf: gpd.GeoDataFrame,
 ) -> pd.Series:
-    """
-    Parallelize independent runs, then majority‐vote.
-    """
-    # 1) Prepare cached neighbor map for inject_noise_labels()
+    # Temporarily bypass Parallel so all prints appear in this process
+    runs_to_do = 1      # do just one pass
+    in_process = True   # toggle to False once you’ve fixed the seed problem
+
+    # build neighbor map…
     segs = segments_gdf.reset_index(drop=True)
     neigh = gpd.sjoin(
         segs[['segment_id','geometry']],
@@ -280,18 +281,20 @@ def run_self_training(
     )
     map_n = neigh.groupby('segment_id_left')['segment_id_right'].apply(set).to_dict()
 
-    # helper to pass the cache in
-    def _single_run(_):
-        return run_self_training_single_pass(
-            segments_gdf, feature_matrix, poi_gdf, map_n=map_n
+    if in_process:
+        label_matrix = [
+            run_self_training_single_pass(segments_gdf, feature_matrix, poi_gdf, map_n=map_n)
+            for _ in range(runs_to_do)
+        ]
+    else:
+        label_matrix = Parallel(n_jobs=cfg.get("n_jobs", 4))(
+            delayed(run_self_training_single_pass)(
+                segments_gdf, feature_matrix, poi_gdf, map_n=map_n
+            ) for _ in range(cfg.get("runs"))
         )
 
-    # 2) Parallel runs
-    label_matrix = Parallel(n_jobs=cfg.get("n_jobs", 4))(
-        delayed(_single_run)(i) for i in range(runs)
-    )
-
-    # 3) Majority vote
+    # Majority vote…
     label_df = pd.DataFrame(label_matrix)
     final_labels = label_df.mode().iloc[0]
+    print("[DEBUG @run_self_training] final_labels value counts:", final_labels.value_counts())
     return final_labels
