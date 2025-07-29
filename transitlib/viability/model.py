@@ -33,34 +33,44 @@ def initialize_seed_labels(
     poi_gdf: gpd.GeoDataFrame
 ) -> pd.DataFrame:
     proj_crs = "EPSG:3857"
+
+    # 1) Reproject both layers into metric CRS
     segs_proj = segments_gdf.to_crs(proj_crs)
     pois_proj = poi_gdf.to_crs(proj_crs)
 
-    # 1) POI-based positives
-    seg_buf = segments_gdf.copy()
-    seg_buf['buffer'] = seg_buf.geometry.buffer(poi_buf)
-    # buffer GeoSeries has same CRS as segments_gdf
-    buf_gdf = seg_buf.set_geometry('buffer')
+    # 2) Build buffers (in meters) on the projected segments
+    segs_proj["buffer_geom"] = segs_proj.geometry.buffer(poi_buf)
 
+    # 3) Spatial join: which POIs fall within which buffered segment?
+    buf_gdf = segs_proj.set_geometry("buffer_geom")[["segment_id", "buffer_geom"]]
     pos = gpd.sjoin(
-        poi_gdf,
-        buf_gdf[['segment_id','buffer']],
-        predicate='within', how='inner'
+        pois_proj.set_geometry("geometry"),
+        buf_gdf.rename_geometry("geometry"),
+        predicate="within",
+        how="inner"
     )
-    pos_ids = pos.segment_id.unique()
-    if len(pos_ids) == 0:
-        raise ValueError("No positive seed segments found: check POI–segment overlap or buffer size.")
 
-    # 2) Strict “all‑features” negatives
+    pos_ids = pos.segment_id.unique()
+    print(f"[DEBUG] positive seeds found: {len(pos_ids)}")
+    if len(pos_ids) == 0:
+        raise ValueError(
+            "No POIs fell within any segment buffers. "
+            "Either increase `buffer_poi` or verify your POI layer."
+        )
+
+    # 4) Strict “all‑features” negatives (unchanged)
     thresh = feature_matrix.quantile(neg_pct / 100.0)
     neg_mask = (feature_matrix <= thresh).all(axis=1)
     neg_ids = feature_matrix.index[neg_mask]
+    print(f"[DEBUG] negative seeds found: {len(neg_ids)}")
 
-    # 3) Combine seeds
+    # 5) Combine and label
     seed_ids = list(set(pos_ids) | set(neg_ids))
     seeds = feature_matrix.loc[seed_ids].copy()
-    seeds['label'] = 0
-    seeds.loc[pos_ids, 'label'] = 1
+    seeds["label"] = 0
+    seeds.loc[pos_ids, "label"] = 1
+
+    print(f"[DEBUG] seed label distribution:\n{seeds['label'].value_counts()}")
 
     return seeds
 
