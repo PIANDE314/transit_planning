@@ -21,7 +21,7 @@ results = []
 # 4) Loop over every combination, build the GTFS folder name, compute accessibility
 for city, n, t, tf, alg in itertools.product(cities, noise, trip_type, transform, algorithm):
     folder_name = f"{city}_{n}_{t}_{tf}_{alg}_gtfs"
-    gtfs_path = Path(folder_name)
+    gtfs_path = outputs_dir \ folder_name
     if not gtfs_path.exists():
         print(f"⚠️ Skipping missing folder: {folder_name}")
         continue
