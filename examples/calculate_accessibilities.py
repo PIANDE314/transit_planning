@@ -23,12 +23,6 @@ for gtfs_path in gtfs_dirs:
 
     # Print to console
     print(f"{name}: {score:.4f}")
-
-    # Save to a text file
-    out_file = outputs_dir / f"{name}_accessibility.txt"
-    with out_file.open("w") as f:
-        f.write(f"{name}: {score:.6f}\n")
-
     results.append((name, score))
 
 # Optionally, write a summary CSV
